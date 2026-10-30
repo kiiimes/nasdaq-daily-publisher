@@ -40,6 +40,7 @@ jobs:
         run: python3 -m pip install 'Pillow==13.0.0'
       - name: Offline Python and Node regressions (synthetic data and mocks only)
         run: |
+          export TMPDIR="$(cd "$RUNNER_TEMP" && pwd -P)"
           python3 -m unittest discover -v -p 'test*.py'
           node --test test*.mjs
       - name: Public-only environment health (never automation readiness)
