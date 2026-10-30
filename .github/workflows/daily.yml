@@ -1,0 +1,232 @@
+name: NASDAQ public runner
+on:
+  schedule:
+    - cron: '30 22 * * 1-5'
+  workflow_dispatch:
+    inputs:
+      mode:
+        type: choice
+        options: [health, connections, generate, daily, publish]
+        default: health
+        required: true
+      connection_push_dry_run:
+        description: Verify private SSH push authorization without pushing (connections only)
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: nasdaq-codex-production
+  cancel-in-progress: false
+jobs:
+  health:
+    if: github.event_name == 'workflow_dispatch' && inputs.mode == 'health'
+    permissions:
+      contents: read
+    runs-on: macos-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Install pinned rendering dependency
+        run: python3 -m pip install 'Pillow==13.0.0'
+      - name: Offline Python and Node regressions (synthetic data and mocks only)
+        run: |
+          python3 -m unittest discover -v -p 'test*.py'
+          node --test test*.mjs
+      - name: Public-only environment health (never automation readiness)
+        run: python3 cloud_daily.py health
+  connections:
+    if: >-
+      github.repository == 'kiiimes/nasdaq-daily-publisher' && github.ref == 'refs/heads/main' &&
+      github.event_name == 'workflow_dispatch' && inputs.mode == 'connections'
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          path: source
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Checkout only private state using repository-scoped SSH
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: kiiimes/nasdaq-instagram-automation
+          ref: main
+          path: runtime
+          ssh-key: ${{ secrets.STATE_DEPLOY_KEY }}
+          persist-credentials: true
+      - name: Stage explicit public runtime allowlist after strict private-origin guard
+        run: node source/stage-runtime.mjs source runtime
+      - name: Verify private SSH origin with optional captured push dry-run
+        working-directory: runtime
+        env:
+          DRY_RUN: ${{ inputs.connection_push_dry_run }}
+        run: |
+          if [ "$DRY_RUN" = true ]; then
+            node ../source/verify-state-connection.mjs . --dry-run
+          else
+            node ../source/verify-state-connection.mjs .
+          fi
+  generate:
+    if: >-
+      github.repository == 'kiiimes/nasdaq-daily-publisher' && github.ref == 'refs/heads/main' &&
+      vars.AUTOMATION_ENABLED == 'true' && vars.MODEL_ISOLATION_VERIFIED == 'true' &&
+      (github.event_name == 'schedule' ||
+      (github.event_name == 'workflow_dispatch' && (inputs.mode == 'generate' || inputs.mode == 'daily')))
+    permissions:
+      contents: read
+    runs-on: macos-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: runtime
+    env:
+      AUTOMATION_ENABLED: ${{ vars.AUTOMATION_ENABLED || 'false' }}
+      MODEL_ISOLATION_VERIFIED: ${{ vars.MODEL_ISOLATION_VERIFIED || 'false' }}
+      PUBLISH_ENABLED: ${{ vars.PUBLISH_ENABLED || 'false' }}
+      CODEX_HOME: ${{ runner.temp }}/nasdaq-codex-home
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          path: source
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Validate public generation gates BEFORE private checkout or secret restoration
+        working-directory: source
+        run: |
+          test "$AUTOMATION_ENABLED" = true
+          test "$MODEL_ISOLATION_VERIFIED" = true
+          node --input-type=module -e "import fs from 'node:fs'; const c=JSON.parse(fs.readFileSync('cloud_config.json','utf8')); if(c.model_isolation_verified !== true) { console.error('Model isolation is unverified; generation disabled'); process.exit(1); }"
+      - name: Checkout latest private state using repository-scoped SSH
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: kiiimes/nasdaq-instagram-automation
+          ref: main
+          path: runtime
+          ssh-key: ${{ secrets.STATE_DEPLOY_KEY }}
+          persist-credentials: true
+      - name: Stage explicit public runtime allowlist after strict private-origin guard
+        working-directory: ${{ github.workspace }}
+        run: node source/stage-runtime.mjs source runtime
+      - name: Install pinned rendering dependency and verified Codex version
+        run: |
+          python3 -m pip install 'Pillow==13.0.0'
+          VERSION=$(node -p "JSON.parse(require('fs').readFileSync('cloud_config.json')).codex_version")
+          npm install --global "@openai/codex@$VERSION"
+          codex --version
+      - name: Initialize portable private state
+        id: state
+        run: node --input-type=module -e "import {materialize} from './cloud_publish.mjs'; await materialize(process.cwd())"
+      - name: Restore encrypted managed session
+        id: restore
+        env:
+          CODEX_AUTH_KEY: ${{ secrets.CODEX_AUTH_KEY }}
+        run: node codex_session.mjs restore --state codex_session.enc --home "$CODEX_HOME" --repository kiiimes/nasdaq-instagram-automation
+      - name: Generate independently verified date-aligned edition
+        env:
+          KIS_APP_KEY: ${{ secrets.KIS_APP_KEY }}
+          KIS_APP_SECRET: ${{ secrets.KIS_APP_SECRET }}
+        run: python3 cloud_daily.py generate
+      - name: Always persist refreshed encrypted session after restore attempt
+        if: always() && steps.restore.outcome != 'skipped' && steps.state.outcome == 'success'
+        env:
+          CODEX_AUTH_KEY: ${{ secrets.CODEX_AUTH_KEY }}
+        run: node codex_session.mjs persist --state codex_session.enc --home "$CODEX_HOME" --repository kiiimes/nasdaq-instagram-automation
+      - name: Always checkpoint private generation and encrypted auth using SSH only
+        if: always() && steps.state.outcome == 'success'
+        run: node cloud_publish.mjs checkpoint
+      - name: Always remove plaintext credentials (checkout post-action removes scoped SSH key)
+        if: always()
+        working-directory: ${{ github.workspace }}
+        run: |
+          rm -rf "$CODEX_HOME" runtime/.instagram-api
+          rm -f runtime/.env runtime/.kis-token.json
+  publish:
+    needs: generate
+    if: >-
+      always() && github.repository == 'kiiimes/nasdaq-daily-publisher' && github.ref == 'refs/heads/main' &&
+      vars.AUTOMATION_ENABLED == 'true' && vars.MODEL_ISOLATION_VERIFIED == 'true' && vars.PUBLISH_ENABLED == 'true' &&
+      ((github.event_name == 'schedule' && needs.generate.result == 'success') ||
+      (github.event_name == 'workflow_dispatch' && inputs.mode == 'daily' && needs.generate.result == 'success') ||
+      (github.event_name == 'workflow_dispatch' && inputs.mode == 'publish'))
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: runtime
+    env:
+      AUTOMATION_ENABLED: ${{ vars.AUTOMATION_ENABLED || 'false' }}
+      MODEL_ISOLATION_VERIFIED: ${{ vars.MODEL_ISOLATION_VERIFIED || 'false' }}
+      PUBLISH_ENABLED: ${{ vars.PUBLISH_ENABLED || 'false' }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          path: source
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Checkout private main AFTER successful generation push (or explicit publish)
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          repository: kiiimes/nasdaq-instagram-automation
+          ref: main
+          path: runtime
+          ssh-key: ${{ secrets.STATE_DEPLOY_KEY }}
+          persist-credentials: true
+      - name: Stage the same immutable public source after strict private-origin guard
+        working-directory: ${{ github.workspace }}
+        run: node source/stage-runtime.mjs source runtime
+      - name: Install pinned image validation dependency
+        run: python3 -m pip install 'Pillow==13.0.0'
+      - name: Initialize portable private state
+        id: state
+        run: node --input-type=module -e "import {materialize} from './cloud_publish.mjs'; await materialize(process.cwd())"
+      - name: Observe real five-card stability and checkpoint via SSH
+        run: node cloud_publish.mjs scan
+      - name: Upload approved JPEG-only immutable assets
+        env:
+          ASSETS_DEPLOY_KEY: ${{ secrets.ASSETS_DEPLOY_KEY }}
+        run: node upload-media.mjs prepare
+      - name: Publish once with durable SSH-pushed preclaim
+        env:
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          IG_HOST: graph.facebook.com
+          IG_VERSION: v26.0
+          IG_ID: '17841426703447281'
+        run: node cloud_publish.mjs publish
+      - name: Always checkpoint private publish state using SSH only
+        if: always() && steps.state.outcome == 'success'
+        run: node cloud_publish.mjs checkpoint
+      - name: Always remove plaintext credentials (checkout post-action removes scoped SSH key)
+        if: always()
+        working-directory: ${{ github.workspace }}
+        run: |
+          rm -rf runtime/.instagram-api
+          rm -f runtime/.env runtime/.kis-token.json

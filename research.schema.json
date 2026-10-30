@@ -1,0 +1,293 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "trade_date",
+    "session",
+    "crosscheck",
+    "picks",
+    "sources",
+    "facts"
+  ],
+  "properties": {
+    "trade_date": {
+      "type": "string",
+      "pattern": "^[0-9]{8}$"
+    },
+    "session": {
+      "type": "string",
+      "const": "regular close"
+    },
+    "crosscheck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "COMP",
+        "SPX",
+        ".DJI"
+      ],
+      "properties": {
+        "COMP": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "date",
+            "close",
+            "change_pct",
+            "source_ids"
+          ],
+          "properties": {
+            "date": {
+              "type": "string",
+              "pattern": "^[0-9]{8}$"
+            },
+            "close": {
+              "type": "string",
+              "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+            },
+            "change_pct": {
+              "type": "string",
+              "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+            },
+            "source_ids": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 30,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4000
+              },
+              "uniqueItems": true
+            }
+          }
+        },
+        "SPX": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "date",
+            "close",
+            "change_pct",
+            "source_ids"
+          ],
+          "properties": {
+            "date": {
+              "type": "string",
+              "pattern": "^[0-9]{8}$"
+            },
+            "close": {
+              "type": "string",
+              "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+            },
+            "change_pct": {
+              "type": "string",
+              "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+            },
+            "source_ids": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 30,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4000
+              },
+              "uniqueItems": true
+            }
+          }
+        },
+        ".DJI": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "date",
+            "close",
+            "change_pct",
+            "source_ids"
+          ],
+          "properties": {
+            "date": {
+              "type": "string",
+              "pattern": "^[0-9]{8}$"
+            },
+            "close": {
+              "type": "string",
+              "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+            },
+            "change_pct": {
+              "type": "string",
+              "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+            },
+            "source_ids": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 30,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4000
+              },
+              "uniqueItems": true
+            }
+          }
+        }
+      }
+    },
+    "picks": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "exchange",
+          "symbol",
+          "name",
+          "direction",
+          "close",
+          "change_pct",
+          "source_ids"
+        ],
+        "properties": {
+          "exchange": {
+            "type": "string",
+            "enum": [
+              "NAS",
+              "NYS",
+              "AMS"
+            ]
+          },
+          "symbol": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9.-]{0,9}$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "up",
+              "down"
+            ]
+          },
+          "close": {
+            "type": "string",
+            "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+          },
+          "change_pct": {
+            "type": "string",
+            "pattern": "^-?[0-9]+(\\.[0-9]+)?$"
+          },
+          "source_ids": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 30,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4000
+            },
+            "uniqueItems": true
+          }
+        }
+      }
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 15,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "title",
+          "url",
+          "supports",
+          "published_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          },
+          "url": {
+            "type": "string",
+            "pattern": "^https://"
+          },
+          "supports": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 30,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4000
+            },
+            "uniqueItems": true
+          },
+          "published_at": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          }
+        }
+      }
+    },
+    "facts": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "claim",
+          "statement",
+          "event_at",
+          "source_ids"
+        ],
+        "properties": {
+          "claim": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          },
+          "statement": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          },
+          "event_at": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          },
+          "source_ids": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 30,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4000
+            },
+            "uniqueItems": true
+          }
+        }
+      }
+    }
+  }
+}

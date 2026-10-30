@@ -1,0 +1,17 @@
+.env*
+.kis-token*
+.instagram-auto/
+.instagram-api/
+.cloud-ready.json
+cloud_state*.json
+codex_session.enc
+*.enc
+editions/
+auth.json
+**/auth.json
+*codex*home*/
+*.key
+*_deploy*
+node_modules/
+__pycache__/
+*.pyc
