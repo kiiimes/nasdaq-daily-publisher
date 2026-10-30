@@ -98,7 +98,6 @@ jobs:
       AUTOMATION_ENABLED: ${{ vars.AUTOMATION_ENABLED || 'false' }}
       MODEL_ISOLATION_VERIFIED: ${{ vars.MODEL_ISOLATION_VERIFIED || 'false' }}
       PUBLISH_ENABLED: ${{ vars.PUBLISH_ENABLED || 'false' }}
-      CODEX_HOME: ${{ runner.temp }}/nasdaq-codex-home
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -117,6 +116,10 @@ jobs:
           test "$AUTOMATION_ENABLED" = true
           test "$MODEL_ISOLATION_VERIFIED" = true
           node --input-type=module -e "import fs from 'node:fs'; const c=JSON.parse(fs.readFileSync('cloud_config.json','utf8')); if(c.model_isolation_verified !== true) { console.error('Model isolation is unverified; generation disabled'); process.exit(1); }"
+      - name: Initialize isolated session home using runner environment
+        working-directory: source
+        run: |
+          printf 'CODEX_HOME=%s/nasdaq-codex-home\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
       - name: Checkout latest private state using repository-scoped SSH
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
