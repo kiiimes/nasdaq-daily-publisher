@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 import re
 import time
+import sys
+import traceback
 import uuid
 
 ROOT = Path(__file__).parent
@@ -36,6 +38,7 @@ def collect(day, picks, query, pause=time.sleep):
     from fetch_market import normalize
     stocks = []
     for exchange, symbol, name in picks:
+        print(f'BROKER_SELECTION {exchange} {symbol}', file=sys.stderr)
         response = query('/uapi/overseas-price/v1/quotations/dailyprice', 'HHDFS76240000', {'AUTH': '', 'EXCD': exchange, 'SYMB': symbol, 'GUBN': '0', 'BYMD': day, 'MODP': '0'})
         row = {'symbol': symbol, 'name': name, 'exchange': exchange, **normalize(response.get('output2') or [], 'xymd', 'clos', day)}
         current, previous = Decimal(row['close']), Decimal(row['previous_close'])
@@ -68,7 +71,9 @@ def main():
         finally:
             temporary.unlink(missing_ok=True)
         print(json.dumps({'status': 'collected', 'trade_date': day, 'symbols': [x['symbol'] for x in data['stocks']], 'output': str(target)}, ensure_ascii=False))
-    except (ValueError, RuntimeError, OSError, KeyError, ArithmeticError):
+    except (ValueError, RuntimeError, OSError, KeyError, ArithmeticError) as error:
+        locations = ','.join(f'{Path(f.filename).stem}:{f.name}:{f.lineno}' for f in traceback.extract_tb(error.__traceback__) if Path(f.filename).name in ('collect_movers.py','fetch_market.py','check_kis.py'))
+        print(f'BROKER_DIAGNOSTIC {type(error).__name__} {locations}', file=sys.stderr)
         p.exit(1, 'Selected-mover collection failed; no complete movers file saved. Check date, symbols, network and data availability.\n')
 
 
