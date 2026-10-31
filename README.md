@@ -16,10 +16,12 @@ Public source for the daily.nasdaq.kr card-generation and official Instagram pub
 - Instagram token/account verification and a non-publishing end-to-end test are pending. A passing environment or SSH-connection test is not a successful generation or Instagram publication.
 
 ## Workflows
-- `health` (default): public-source-only offline tests and macOS Python 3.13 / Pillow 13 / AppleSDGothicNeo font check. No private checkout or secrets, zero model/KIS/Meta calls.
+- `health`: public-source-only offline tests and macOS Python 3.13 / Pillow 13 / AppleSDGothicNeo font check. No private checkout or secrets, zero model/KIS/Meta calls.
 - `connections`: checks the private state connection, with no auth decrypt, data collection, generation, media upload or publication. A dry-run push does not update the private repository.
 - `render`: explicit one-off rendering of reviewed independently checked private inputs for a specified trade date. No model/provider calls, auth restoration, asset deployment or publication.
-- `generate`, `daily`, `publish`: fail-closed gates. Once approved and enabled, schedule is Tuesday-Saturday 07:30 Asia/Seoul, best effort. No automatic historical backfill or date substitution.
+- `generate`, `daily`, `publish`: fail-closed gates. Once approved and enabled, schedule is Tuesday-Saturday 07:00 Asia/Seoul, best effort. No automatic historical backfill or date substitution.
+
+Manual **Run workflow** now defaults to `daily` (generate then publish). Choose `health` explicitly for offline checks. The schedule starts the pipeline at 07:00 KST; generation and queue delays mean this is not a guarantee of a 07:00 publication. Existing readiness gates remain enforced.
 
 ## Safety boundaries
 Runtime source is copied using an explicit allowlist into a separate PRIVATE SSH worktree. State checkpointing rejects any other raw or effective Git fetch/push destination before mutation. Only approved edition files and encrypted auth can be checkpointed. No `git add .`, no workflow artifact uploads, no private state in public history.

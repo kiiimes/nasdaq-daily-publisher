@@ -1,13 +1,13 @@
 name: NASDAQ public runner
 on:
   schedule:
-    - cron: '30 22 * * 1-5'
+    - cron: '0 22 * * 1-5'  # Tue-Sat 07:00 Asia/Seoul (UTC+9)
   workflow_dispatch:
     inputs:
       mode:
         type: choice
         options: [health, connections, generate, daily, publish, render]
-        default: health
+        default: daily
         required: true
       trade_date:
         description: Explicit US regular-close date YYYY-MM-DD (render only)
