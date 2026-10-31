@@ -12,6 +12,7 @@ import shutil
 import signal
 import subprocess
 import tempfile
+import traceback
 from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
 from editorial_runtime import arguments as isolated_arguments, VERSION as CODEX_VERSION, transport_schema
@@ -285,8 +286,10 @@ def main():
         write_output(a.output,result); print(json.dumps({'ok':True,'stage':a.command}))
     except ModelIsolationError as e:
         p.exit(1, str(e) + '\n')
-    except Exception:
-        p.exit(1,'Editorial generation rejected; no verified output written.\n')
+    except Exception as error:
+        frames = traceback.extract_tb(error.__traceback__)
+        locations = ','.join(f'{f.name}:{f.lineno}' for f in frames if Path(f.filename).name == 'codex_editorial.py')
+        p.exit(1, f'EDITORIAL_DIAGNOSTIC {type(error).__name__} {locations}\nEditorial generation rejected; no verified output written.\n')
 
 
 if __name__ == '__main__': main()

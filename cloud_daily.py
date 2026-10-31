@@ -54,6 +54,11 @@ def child(args, kis=False, timeout=485, retain_kis_cache=False):
                 f.write('KIS_APP_KEY='+safe['KIS_APP_KEY']+'\nKIS_APP_SECRET='+safe['KIS_APP_SECRET']+'\n')
         result = subprocess.run(args, cwd=ROOT, env=safe, capture_output=True, timeout=timeout)
         if result.returncode:
+            if Path(args[1]).name == 'codex_editorial.py':
+                import re
+                for line in result.stderr.decode('utf8', errors='replace').splitlines():
+                    if re.fullmatch(r'EDITORIAL_DIAGNOSTIC [A-Za-z]+ [A-Za-z0-9_:,]+', line):
+                        print(line, file=sys.stderr)
             raise ValueError('Stage failed: '+Path(args[1]).name+'; requested date unavailable or validation failed; no date substitution')
         if kis and retain_kis_cache:
             if token_file.exists(): token_file.chmod(0o600)
