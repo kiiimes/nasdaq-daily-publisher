@@ -11,6 +11,7 @@ import re
 import shutil
 import signal
 import subprocess
+import sys
 import tempfile
 import traceback
 from urllib.parse import urlsplit
@@ -229,7 +230,11 @@ def compose(requested, research, market, movers, invoke=run_codex):
     indices = market['indices']; require(len(indices) == 3 and {i['symbol'] for i in indices} == {'COMP','SPX','.DJI'})
     for row in indices:
         c = research['crosscheck'][row['symbol']]
-        require(row['date'] == td and abs(number(row['close']) - number(c['close'])) <= Decimal('.02') and abs(number(row['change_pct']) - number(c['change_pct'])) <= Decimal('.01'))
+        agrees = row['date'] == td and abs(number(row['close']) - number(c['close'])) <= Decimal('.02') and abs(number(row['change_pct']) - number(c['change_pct'])) <= Decimal('.01')
+        if not agrees:
+            values = ' '.join(str(number(x)) for x in (c['close'], row['close'], c['change_pct'], row['change_pct']))
+            print(f"QUOTE_MISMATCH {row['symbol']} {values}", file=sys.stderr)
+        require(agrees)
     stocks = movers['stocks']; require(len(stocks) == len(research['picks']) and len({s['symbol'] for s in stocks}) == len(stocks))
     lookup = {s['symbol']: s for s in stocks}
     for p in research['picks']:

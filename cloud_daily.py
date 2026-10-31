@@ -57,7 +57,7 @@ def child(args, kis=False, timeout=485, retain_kis_cache=False):
             if Path(args[1]).name in ('codex_editorial.py','collect_movers.py','daily_pipeline.py'):
                 import re
                 for line in result.stderr.decode('utf8', errors='replace').splitlines():
-                    if re.fullmatch(r'(?:(?:EDITORIAL|BROKER)_DIAGNOSTIC [A-Za-z]+ [A-Za-z0-9_:,]+|KIS_ERROR [0-9]{3} [A-Z0-9_]{1,16}|BROKER_SELECTION (?:NAS|NYS|AMS) [A-Z][A-Z0-9.-]{0,9})', line):
+                    if re.fullmatch(r'(?:(?:EDITORIAL|BROKER)_DIAGNOSTIC [A-Za-z]+ [A-Za-z0-9_:,]+|QUOTE_MISMATCH (?:COMP|SPX|\.DJI)(?: [-+0-9.Ee]{1,40}){4}|KIS_ERROR [0-9]{3} [A-Z0-9_]{1,16}|BROKER_SELECTION (?:NAS|NYS|AMS) [A-Z][A-Z0-9.-]{0,9})', line):
                         print(line, file=sys.stderr)
             raise ValueError('Stage failed: '+Path(args[1]).name+'; requested date unavailable or validation failed; no date substitution')
         if kis and retain_kis_cache:
