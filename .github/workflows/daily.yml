@@ -6,11 +6,11 @@ on:
     inputs:
       mode:
         type: choice
-        options: [health, connections, editorial, generate, daily, publish, render]
+        options: [health, connections, editorial, generate, daily, publish, render, repost]
         default: daily
         required: true
       trade_date:
-        description: Explicit US regular-close date YYYY-MM-DD (render only)
+        description: Explicit US regular-close date YYYY-MM-DD (render or repost; required for both)
         type: string
         default: ''
         required: false
@@ -28,7 +28,7 @@ jobs:
     if: >-
       github.repository == 'kiiimes/nasdaq-daily-publisher' && github.ref == 'refs/heads/main' &&
       (github.event_name == 'schedule' ||
-      (github.event_name == 'workflow_dispatch' && contains(fromJSON('["editorial","generate","daily","publish"]'), inputs.mode)))
+      (github.event_name == 'workflow_dispatch' && contains(fromJSON('["editorial","generate","daily","publish","repost"]'), inputs.mode)))
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
@@ -37,7 +37,7 @@ jobs:
           AUTOMATION_READY: ${{ vars.AUTOMATION_ENABLED == 'true' }}
           MODEL_READY: ${{ vars.MODEL_ISOLATION_VERIFIED == 'true' }}
           PUBLISH_READY: ${{ vars.PUBLISH_ENABLED == 'true' }}
-          NEED_PUBLISH: ${{ github.event_name == 'schedule' || (inputs.mode == 'daily' || inputs.mode == 'publish') }}
+          NEED_PUBLISH: ${{ github.event_name == 'schedule' || (inputs.mode == 'daily' || inputs.mode == 'publish' || inputs.mode == 'repost') }}
           HAS_SESSION_KEY: ${{ secrets.CODEX_AUTH_KEY != '' }}
           HAS_STATE_KEY: ${{ secrets.STATE_DEPLOY_KEY != '' }}
           HAS_KIS_KEY: ${{ secrets.KIS_APP_KEY != '' && secrets.KIS_APP_SECRET != '' }}
@@ -235,7 +235,7 @@ jobs:
       vars.AUTOMATION_ENABLED == 'true' && vars.MODEL_ISOLATION_VERIFIED == 'true' && vars.PUBLISH_ENABLED == 'true' &&
       ((github.event_name == 'schedule' && needs.generate.result == 'success' && needs.generate.outputs.publish_eligible == 'true') ||
       (github.event_name == 'workflow_dispatch' && inputs.mode == 'daily' && needs.generate.result == 'success' && needs.generate.outputs.publish_eligible == 'true') ||
-      (github.event_name == 'workflow_dispatch' && inputs.mode == 'publish'))
+      (github.event_name == 'workflow_dispatch' && (inputs.mode == 'publish' || inputs.mode == 'repost')))
     permissions:
       contents: read
     runs-on: ubuntu-latest
@@ -275,7 +275,16 @@ jobs:
       - name: Initialize portable private state
         id: state
         run: node --input-type=module -e "import {materialize} from './cloud_publish.mjs'; await materialize(process.cwd())"
+      - name: Explicitly authorize one dated repost and refresh emoji caption
+        if: github.event_name == 'workflow_dispatch' && inputs.mode == 'repost'
+        env:
+          REPOST_MODE: ${{ inputs.mode }}
+          REPOST_DATE: ${{ inputs.trade_date }}
+        run: node cloud_publish.mjs authorize-repost "$REPOST_DATE"
       - name: Observe real five-card stability and checkpoint via SSH
+        env:
+          REPOST_MODE: ${{ inputs.mode }}
+          REPOST_DATE: ${{ inputs.trade_date }}
         run: node cloud_publish.mjs scan
       - name: Upload approved JPEG-only immutable assets
         env:

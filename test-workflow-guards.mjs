@@ -8,7 +8,7 @@ test('session home uses runtime environment, not unavailable job runner context'
  assert.ok(workflow.indexOf('Initialize isolated session home')<workflow.indexOf('Checkout latest private state'));
 });
 test('manual render requires explicit date and trusted manual main dispatch only',()=>{
- assert.match(workflow,/options: \[health, connections, editorial, generate, daily, publish, render\]/);
+ assert.match(workflow,/options: \[health, connections, editorial, generate, daily, publish, render, repost\]/);
  assert.match(workflow,/trade_date:\n        description: [^\n]+\n        type: string\n        default: ''\n        required: false/);
  const render=workflow.split('\n  render:')[1];
  assert.ok(render);
@@ -30,4 +30,12 @@ test('manual render requires explicit date and trusted manual main dispatch only
  assert.ok(render.indexOf('stage-runtime.mjs')<render.indexOf('await materialize(process.cwd())'));
  assert.ok(render.indexOf('await materialize(process.cwd())')<render.indexOf('manual_render.py'));
  assert.ok(render.indexOf('manual_render.py')<render.indexOf('manual_render_checkpoint.mjs'));
+});
+
+test('repost requires manual dispatch and passes date through environment',()=>{
+ const publish=workflow.slice(workflow.indexOf('  publish:'),workflow.indexOf('  render:'));
+ assert.match(publish,/github.event_name == 'workflow_dispatch' && inputs.mode == 'repost'/);
+ assert.match(publish,/REPOST_DATE: \$\{\{ inputs.trade_date \}\}/);
+ assert.match(publish,/authorize-repost "\$REPOST_DATE"/);
+ assert.ok(publish.indexOf('authorize-repost') < publish.indexOf('node cloud_publish.mjs scan'));
 });

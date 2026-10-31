@@ -25,6 +25,11 @@ Public source for the daily.nasdaq.kr card-generation and official Instagram pub
 - `render`: explicit one-off rendering of reviewed independently checked private inputs for a specified trade date. No model/provider calls, auth restoration, asset deployment or publication.
 - `generate`, `daily`, `publish`: fail-closed gates. Once approved and enabled, schedule is Tuesday-Saturday 07:00 Asia/Seoul, best effort. No automatic historical backfill or date substitution.
 
+### Reposting a deleted post
+Open **Run workflow**, keep branch **main**, select **repost**, and enter the US trade date (for example `2026-10-30`) in **trade_date**. This explicitly authorizes another Instagram post for that date; it does not check whether the original Instagram post was deleted.
+
+Repost reuses the stored images, refreshes the caption with 🇺🇸 📊 📈 📉 🇰🇷 section markers, updates the matching ZIP, and retains previous receipts in private publication history. Only previously posted dates are eligible, and the existing 120-hour freshness limit still applies. Uncertain/blocked publications require review. Re-running the same GitHub run cannot authorize a second repost; a new manual dispatch is a separate explicit request. Ordinary `daily` runs continue to skip posted dates. No model or new quote collection is needed for a repost.
+
 Manual **Run workflow** now defaults to `daily` (generate then publish). Choose `health` explicitly for offline checks. The schedule starts the pipeline at 07:00 KST; generation and queue delays mean this is not a guarantee of a 07:00 publication. All three readiness gates are enabled. Subscription limits, expired credentials or failed verification stop the run; there is no paid API fallback.
 
 ## Safety boundaries

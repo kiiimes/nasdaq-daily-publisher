@@ -39,7 +39,7 @@ export async function materialize(root) {
 }
 export async function portable(root) {
   const local=await json(path.join(root,'.instagram-auto/state.json'));
-  const state={version:1,account:ACCOUNT,baseline:local.baseline,jobs:{}};
+  const state={version:1,account:ACCOUNT,baseline:local.baseline,jobs:{},publication_history:local.publication_history??[],repost_requests:local.repost_requests??[]};
   for(const [id,j] of Object.entries(local.jobs))state.jobs[id]=rebase(j,root,true);
   let previous; try{previous=await json(path.join(root,'cloud_state.json'));}catch(e){if(e.code!=='ENOENT')throw e;}
   for(const [id,j] of Object.entries(previous?.jobs??{})) {
@@ -95,6 +95,30 @@ export function durableWatcher(watcher,persist) {
     markPosted:async(id,url)=>{const r=await watcher.markPosted(id,url);await persist();return r;},
     markBlocked:async(id,reason)=>{const r=await watcher.markBlocked(id,reason);await persist();return r;}};
 }
+export async function authorizeRepost(root,date,requestId,{run=git,refresh}={}) {
+  if(process.env.GITHUB_EVENT_NAME!=='workflow_dispatch'||process.env.GITHUB_REF!=='refs/heads/main'||process.env.REPOST_MODE!=='repost')throw Error('manual_repost_only');
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!/^\d+$/.test(requestId))throw Error('explicit_repost_date_required');
+  const parsed=new Date(date+'T00:00:00Z');
+  if(!Number.isFinite(+parsed)||parsed.toISOString().slice(0,10)!==date)throw Error('invalid_repost_date');
+  requirePrivateOrigin(root,run);
+  const state=await materialize(root),td=date.replaceAll('-',''),edition='editions/'+date+'-five-cards';
+  if((state.repost_requests??[]).includes(requestId))throw Error('repost_request_already_consumed');
+  if(Object.values(state.jobs).some(j=>['blocked','in_progress'].includes(j.status)))throw Error('uncertain_publication_requires_review');
+  const jobs=Object.values(state.jobs).filter(j=>j.trade_date===td);
+  if(!jobs.length||jobs.some(j=>j.status!=='posted'||path.basename(j.edition)!==date+'-five-cards'))throw Error('posted_edition_required');
+  const update=refresh??(()=>execFileSync('python3',['build_edition.py','--caption-only','--market',`editions/${date}/market.json`,'--editorial',`editions/${date}-korea/editorial.json`,'--movers',`editions/${date}-korea/movers.json`,'--output',edition],{cwd:root,stdio:['ignore','pipe','pipe'],timeout:60000}));
+  await update();
+  state.publication_history=[...(state.publication_history??[]),...jobs.map(j=>({...rebase(j,root,true),repost_request:requestId}))];
+  state.repost_requests=[...(state.repost_requests??[]),requestId];
+  for(const j of jobs)delete state.jobs[j.id];
+  state.baseline=state.baseline.filter(name=>name!==date+'-five-cards');
+  const portableState={...state};delete portableState.root;
+  portableState.jobs=Object.fromEntries(Object.entries(state.jobs).map(([id,j])=>[id,rebase(j,root,true)]));
+  await atomic(path.join(root,'cloud_state.json'),portableState);
+  await atomic(path.join(root,'.instagram-auto/state.json'),state);
+  await checkpoint(root,[edition+'/caption.txt',edition+'/cards.zip'],run);
+}
+
 export async function scanStable(root,wait=ms=>new Promise(r=>setTimeout(r,ms))) {
   await materialize(root);const w=createWatcher(root);let result=await w.scan();
   if(!result.attention.length&&!result.ready.length) {
@@ -119,7 +143,8 @@ export async function publish(root,id,manifest) {
 }
 async function main() {
   const root=path.dirname(fileURLToPath(import.meta.url)),[command,id]=process.argv.slice(2);
-  if(command==='scan'){const r=await scanStable(root);await atomic(path.join(root,'.cloud-ready.json'),r);console.log(JSON.stringify({ready:r.ready.map(j=>j.id),attention:r.attention.length}));}
+  if(command==='authorize-repost'){await authorizeRepost(root,id,process.env.GITHUB_RUN_ID);console.log('Explicit dated repost authorized; original receipts retained');}
+  else if(command==='scan'){const r=await scanStable(root);if(process.env.REPOST_MODE==='repost')r.ready=r.ready.filter(j=>j.trade_date===process.env.REPOST_DATE?.replaceAll('-',''));await atomic(path.join(root,'.cloud-ready.json'),r);console.log(JSON.stringify({ready:r.ready.map(j=>j.id),attention:r.attention.length}));}
   else if(command==='checkpoint'){await portable(root);const extra=[];for(const d of await fs.readdir(path.join(root,'editions')).catch(()=>[])){
     if(!/^\d{4}-\d{2}-\d{2}(?:-korea|-[a-z0-9-]+cards)?$/.test(d))continue;
     for(const f of await fs.readdir(path.join(root,'editions',d),{recursive:true}))extra.push('editions/'+d+'/'+f);

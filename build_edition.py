@@ -4,6 +4,7 @@ from datetime import datetime
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP, localcontext
 import html
 import json
+import os
 from pathlib import Path
 import re
 import shutil
@@ -139,11 +140,11 @@ def validate(m, e, movers=None):
             evidence(direction + '.' + sym, item['source_ids'])
     tags = e.get('hashtags', ['#매일나스닥', '#미국증시', '#나스닥', '#한국증시', '#미국주식'])
     require(isinstance(tags, list) and len(tags) <= 5 and all(isinstance(t, str) and re.fullmatch(r'#[\w]+', t) for t in tags), 'Invalid hashtags')
-    caption = f"미국 거래일 (US Trade Date): {td.isoformat()} 정규장 마감\n한국 브리핑 (KST Briefing Date): {e['kst_briefing_date']}\n\n{e['headline']}\n{e['subheadline']}\n{e['summary']}\n\n"
-    caption += ' · '.join(INDEX_NAMES[s] + ' ' + pct(lookup[s]) for s in INDEX_NAMES) + '\n'
-    for direction, label in (('up', '강세 종목'), ('down', '약세 종목')):
+    caption = f"🇺🇸 미국 거래일 (US Trade Date): {td.isoformat()} 정규장 마감\n한국 브리핑 (KST Briefing Date): {e['kst_briefing_date']}\n\n{e['headline']}\n{e['subheadline']}\n{e['summary']}\n\n"
+    caption += '📊 ' + ' · '.join(INDEX_NAMES[s] + ' ' + pct(lookup[s]) for s in INDEX_NAMES) + '\n'
+    for direction, label in (('up', '📈 강세 종목'), ('down', '📉 약세 종목')):
         caption += '\n' + label + '\n' + '\n'.join(f"{r['name']} ({r['symbol']}) {pct(r)} | {r['tag']}\n{r['why']}" for r in e[direction]) + '\n'
-    caption += '\n한국장 영향\n' + '\n'.join(r['title'] + ': ' + r['body'] for r in e['korea'])
+    caption += '\n🇰🇷 한국장 영향\n' + '\n'.join(r['title'] + ': ' + r['body'] for r in e['korea'])
     caption += '\n\n※ 전 거래일 정규장 종가 대비 · 시간외 제외 · 종목은 선정 사례, 전체 시장 순위 아님.\n※ ' + DISCLAIMER
     caption += '\n출처: ' + ', '.join(s['title'] for s in e['sources']) + '\n\n' + ' '.join(tags)
     count = len(re.findall(r'(?<!\w)#[\w]+', caption))
@@ -319,12 +320,31 @@ def build(m, e, output, movers=None, overwrite=False):
         lock.rmdir()
 
 
+def refresh_caption(m, e, movers, output):
+    out = Path(output).absolute()
+    safe_existing(out)
+    caption, _, _ = validate(m, e, movers)
+    # Refresh caption and matching ZIP only; retain every original image byte.
+    with tempfile.TemporaryDirectory(prefix='.caption-', dir=out.parent) as directory:
+        stage = Path(directory)
+        (stage/'caption.txt').write_text(caption, encoding='utf-8')
+        with zipfile.ZipFile(stage/'cards.zip', 'w', zipfile.ZIP_DEFLATED) as archive:
+            for name in ZIP_FILES:
+                archive.write(stage/name if name == 'caption.txt' else out/name, name)
+        os.replace(stage/'caption.txt', out/'caption.txt')
+        os.replace(stage/'cards.zip', out/'cards.zip')
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--market', required=True); p.add_argument('--editorial', required=True)
+    p.add_argument('--caption-only', action='store_true')
     p.add_argument('--movers'); p.add_argument('--output', required=True); p.add_argument('--overwrite', action='store_true')
     a = p.parse_args()
     try:
+        if a.caption_only:
+            refresh_caption(load(a.market), load(a.editorial), load(a.movers) if a.movers else None, a.output)
+            return
         print(build(load(a.market), load(a.editorial), a.output, load(a.movers) if a.movers else None, a.overwrite))
     except (ValueError, KeyError, TypeError, OSError, RuntimeError) as exc:
         p.exit(1, f'Build rejected: {exc}\n')
