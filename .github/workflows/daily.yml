@@ -128,6 +128,8 @@ jobs:
           fi
   generate:
     needs: preflight
+    outputs:
+      publish_eligible: ${{ steps.generation.outputs.publish_eligible }}
     if: >-
       github.repository == 'kiiimes/nasdaq-daily-publisher' && github.ref == 'refs/heads/main' &&
       vars.AUTOMATION_ENABLED == 'true' && vars.MODEL_ISOLATION_VERIFIED == 'true' &&
@@ -206,6 +208,7 @@ jobs:
           export TMPDIR="$(cd "$RUNNER_TEMP" && pwd -P)"
           python3 ../source/verify_daily_pipeline.py
       - name: Generate independently verified date-aligned edition
+        id: generation
         if: github.event_name != 'workflow_dispatch' || inputs.mode != 'editorial'
         env:
           KIS_APP_KEY: ${{ secrets.KIS_APP_KEY }}
@@ -230,8 +233,8 @@ jobs:
     if: >-
       always() && needs.preflight.result == 'success' && github.repository == 'kiiimes/nasdaq-daily-publisher' && github.ref == 'refs/heads/main' &&
       vars.AUTOMATION_ENABLED == 'true' && vars.MODEL_ISOLATION_VERIFIED == 'true' && vars.PUBLISH_ENABLED == 'true' &&
-      ((github.event_name == 'schedule' && needs.generate.result == 'success') ||
-      (github.event_name == 'workflow_dispatch' && inputs.mode == 'daily' && needs.generate.result == 'success') ||
+      ((github.event_name == 'schedule' && needs.generate.result == 'success' && needs.generate.outputs.publish_eligible == 'true') ||
+      (github.event_name == 'workflow_dispatch' && inputs.mode == 'daily' && needs.generate.result == 'success' && needs.generate.outputs.publish_eligible == 'true') ||
       (github.event_name == 'workflow_dispatch' && inputs.mode == 'publish'))
     permissions:
       contents: read

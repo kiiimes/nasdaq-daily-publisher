@@ -72,9 +72,16 @@ def generate(day):
     cloud = ROOT/'cloud_state.json'
     seed = read(ROOT/'cloud_state.seed.json')
     state = read(cloud) if cloud.exists() else seed
-    if final.name in state.get('baseline', []) or any(j.get('trade_date') == day.replace('-','') and j.get('status') in ('posted','blocked','in_progress') for j in state.get('jobs',{}).values()):
-        raise ValueError('Trade date is already reserved or posted; manual review only')
-    if final.exists(): raise ValueError('Completed edition already exists; refusing overwrite')
+    jobs = [j for j in state.get('jobs',{}).values() if j.get('trade_date') == day.replace('-','')]
+    if any(j.get('status') in ('blocked','in_progress') for j in jobs):
+        raise ValueError('Trade date has an unresolved reservation; manual review only')
+    if final.name in state.get('baseline', []) or any(j.get('status') == 'posted' for j in jobs):
+        print(json.dumps({'status':'already_posted','edition':final.name}))
+        return False
+    if final.exists():
+        # Publish watcher still validates every artifact/hash and claim before POST.
+        print(json.dumps({'status':'already_rendered','edition':final.name}))
+        return True
     work = ROOT/'editions'/(day+'-korea'); work.mkdir(parents=True, exist_ok=True)
     research, editorial = work/'research.json', work/'editorial.json'
     child([sys.executable,'codex_editorial.py','research','--date',day,'--output',str(research)])
@@ -102,6 +109,7 @@ def generate(day):
     child([sys.executable,'codex_editorial.py','compose','--date',day,'--research',str(research),'--market',str(market),'--movers',str(movers),'--output',str(editorial)])
     child([sys.executable,'build_edition.py','--market',str(market),'--editorial',str(editorial),'--movers',str(movers),'--output',str(final)],timeout=80)
     print(json.dumps({'status':'generated','edition':final.name}))
+    return True
 
 def health():
     cfg=read(ROOT/'cloud_config.json')
@@ -135,7 +143,10 @@ def main():
     p=argparse.ArgumentParser();p.add_argument('mode',choices=['health','generate']);p.add_argument('--date');a=p.parse_args()
     if a.mode=='health': health();return
     if os.environ.get('AUTOMATION_ENABLED')!='true': raise ValueError('AUTOMATION_ENABLED is not true')
-    generate(trade_date(a.date))
+    eligible = generate(trade_date(a.date))
+    if os.environ.get('GITHUB_OUTPUT'):
+        with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+            output.write('publish_eligible=' + str(eligible).lower() + '\n')
 if __name__=='__main__':
     try: main()
     except (ValueError,OSError,KeyError,subprocess.TimeoutExpired) as e:
