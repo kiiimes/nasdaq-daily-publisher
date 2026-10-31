@@ -29,6 +29,9 @@ def trade_date(explicit=None, now=None):
         raise ValueError('Date is weekend, unclosed, or older than 120h')
     return day.isoformat()
 
+class IndependentQuoteMismatch(ValueError):
+    pass
+
 def child(args, kis=False, timeout=485, retain_kis_cache=False):
     safe = {k: v for k, v in os.environ.items() if k in ('PATH','HOME','TMPDIR','RUNNER_TEMP','CODEX_HOME','LANG','SYSTEMROOT')}
     credential_file = ROOT/'.env'
@@ -56,9 +59,11 @@ def child(args, kis=False, timeout=485, retain_kis_cache=False):
         if result.returncode:
             if Path(args[1]).name in ('codex_editorial.py','collect_movers.py','daily_pipeline.py'):
                 import re
-                for line in result.stderr.decode('utf8', errors='replace').splitlines():
+                for line in getattr(result, 'stderr', b'').decode('utf8', errors='replace').splitlines():
                     if re.fullmatch(r'(?:(?:EDITORIAL|BROKER)_DIAGNOSTIC [A-Za-z]+ [A-Za-z0-9_:,]+|QUOTE_MISMATCH (?:COMP|SPX|\.DJI)(?: [-+0-9.Ee]{1,40}){4}|CODEX_ERROR (?:invalid_json_schema|usage_limit_reached|refresh_token_reused|insufficient_quota|invalid_grant|authentication_error)(?:,(?:invalid_json_schema|usage_limit_reached|refresh_token_reused|insufficient_quota|invalid_grant|authentication_error))*|KIS_ERROR [0-9]{3} [A-Z0-9_]{1,16}|BROKER_SELECTION (?:NAS|NYS|AMS) [A-Z][A-Z0-9.-]{0,9})', line):
                         print(line, file=sys.stderr)
+            if Path(args[1]).name == 'codex_editorial.py' and result.returncode == 3:
+                raise IndependentQuoteMismatch('Independent source quotes disagree')
             raise ValueError('Stage failed: '+Path(args[1]).name+'; requested date unavailable or validation failed; no date substitution')
         if kis and retain_kis_cache:
             if token_file.exists(): token_file.chmod(0o600)
@@ -89,29 +94,39 @@ def generate(day):
         return True
     work = ROOT/'editions'/(day+'-korea'); work.mkdir(parents=True, exist_ok=True)
     research, editorial = work/'research.json', work/'editorial.json'
-    child([sys.executable,'codex_editorial.py','research','--date',day,'--output',str(research)])
-    data = read(research)
-    if data.get('trade_date') != day.replace('-','') or data.get('session') != 'regular close': raise ValueError('Research date/session mismatch')
-    picks = data.get('picks', [])
-    if not 2 <= len(picks) <= 8 or len({p.get('symbol') for p in picks}) != len(picks): raise ValueError('Invalid research picks')
-    from collect_movers import selection
-    symbols = [selection(f"{p['exchange']}:{p['symbol']}:{p['name']}") for p in picks]
-    market = ROOT/'editions'/day/'market.json'
-    token_file = ROOT/'.kis-token.json'
-    try:
-        # Only the consecutive quote children may share a broker token.
-        token_file.unlink(missing_ok=True)
-        if not market.exists():
-            child([sys.executable,'daily_pipeline.py','fetch','--date',day],kis=True,retain_kis_cache=True)
-        if read(market).get('trade_date') != day.replace('-',''): raise ValueError('Market cache date mismatch')
-        movers = work/'movers.json'
-        if movers.exists(): raise ValueError('Movers cache exists; manual review rather than silently reuse other selections')
-        args = [sys.executable,'collect_movers.py','--date',day]
-        for p in symbols: args += ['--symbol', ':'.join(p)]
-        child(args,kis=True)
-    finally:
-        token_file.unlink(missing_ok=True)
-    child([sys.executable,'codex_editorial.py','compose','--date',day,'--research',str(research),'--market',str(market),'--movers',str(movers),'--output',str(editorial)])
+    movers = work/'movers.json'
+    if movers.exists(): raise ValueError('Movers cache exists; manual review rather than silently reuse other selections')
+    for attempt in range(2):
+        try:
+            child([sys.executable,'codex_editorial.py','research','--date',day,'--output',str(research)])
+            data = read(research)
+            if data.get('trade_date') != day.replace('-','') or data.get('session') != 'regular close': raise ValueError('Research date/session mismatch')
+            picks = data.get('picks', [])
+            if not 2 <= len(picks) <= 8 or len({p.get('symbol') for p in picks}) != len(picks): raise ValueError('Invalid research picks')
+            from collect_movers import selection
+            symbols = [selection(f"{p['exchange']}:{p['symbol']}:{p['name']}") for p in picks]
+            market = ROOT/'editions'/day/'market.json'
+            token_file = ROOT/'.kis-token.json'
+            try:
+                # Only the consecutive quote children may share a broker token.
+                token_file.unlink(missing_ok=True)
+                if not market.exists():
+                    child([sys.executable,'daily_pipeline.py','fetch','--date',day],kis=True,retain_kis_cache=True)
+                if read(market).get('trade_date') != day.replace('-',''): raise ValueError('Market cache date mismatch')
+                movers = work/'movers.json'
+                if movers.exists(): raise ValueError('Movers cache exists; manual review rather than silently reuse other selections')
+                args = [sys.executable,'collect_movers.py','--date',day]
+                for p in symbols: args += ['--symbol', ':'.join(p)]
+                child(args,kis=True)
+            finally:
+                token_file.unlink(missing_ok=True)
+            child([sys.executable,'codex_editorial.py','compose','--date',day,'--research',str(research),'--market',str(market),'--movers',str(movers),'--output',str(editorial)])
+            break
+        except IndependentQuoteMismatch:
+            if attempt == 1: raise
+            # This invocation owns this file; do not change date or quote values.
+            movers.unlink(missing_ok=True)
+            print('Independent quote mismatch: one new research attempt for the same date', flush=True)
     child([sys.executable,'build_edition.py','--market',str(market),'--editorial',str(editorial),'--movers',str(movers),'--output',str(final)],timeout=80)
     print(json.dumps({'status':'generated','edition':final.name}))
     return True
