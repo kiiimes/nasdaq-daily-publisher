@@ -14,6 +14,26 @@ ROOT = Path(__file__).parent
 BASE = 'https://openapi.koreainvestment.com:9443'
 
 
+class BrokerHTTPError(RuntimeError):
+    def __init__(self, status, detail):
+        self.status = status
+        super().__init__(f'HTTP {status}: {detail}')
+
+
+def retry_read(operation, pause=time.sleep):
+    # All callers are authentication or read-only quotations; never order APIs.
+    for attempt in range(3):
+        try:
+            return operation()
+        except BrokerHTTPError as error:
+            if error.status not in (429, 500, 502, 503, 504) or attempt == 2:
+                raise
+        except (URLError, TimeoutError):
+            if attempt == 2:
+                raise
+        pause(2 ** (attempt + 1))
+
+
 def connect():
     config = dict(line.split('=', 1) for line in (ROOT / '.env').read_text().splitlines()
                   if line.strip() and not line.startswith('#'))
@@ -26,7 +46,7 @@ def connect():
             value = value.replace(item, '[REDACTED]')
         return value[:300]
 
-    def request(path, headers=None, payload=None, params=None):
+    def request_once(path, headers=None, payload=None, params=None):
         url = BASE + path + ('?' + urlencode(params) if params else '')
         req = Request(url, headers={'Content-Type': 'application/json; charset=utf-8', **(headers or {})},
                       data=json.dumps(payload).encode() if payload else None)
@@ -41,10 +61,13 @@ def connect():
                 detail = safe(body.get('error_description') or body.get('msg1') or body.get('error_code') or '')
             except (ValueError, TypeError):
                 detail = 'Non-JSON error response'
-            raise RuntimeError(f'HTTP {exc.code}: {detail}') from None
+            raise BrokerHTTPError(exc.code, detail) from None
         if body.get('rt_cd') not in (None, '0') or 'error_code' in body:
             raise RuntimeError(safe(body.get('msg_cd', body.get('error_code'))) + ': ' + safe(body.get('msg1', body.get('error_description', ''))))
         return body
+
+    def request(path, headers=None, payload=None, params=None):
+        return retry_read(lambda: request_once(path, headers, payload, params))
 
     fingerprint = hashlib.sha256((key + secret).encode()).hexdigest()
     cache_path = ROOT / '.kis-token.json'
