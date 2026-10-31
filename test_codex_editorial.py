@@ -51,6 +51,18 @@ class EditorialTests(unittest.TestCase):
         def mock(prompt,schema):calls.append(prompt);return copy.deepcopy(e)
         self.assertEqual(c.compose('2020-01-02',r,m,v,mock),e);self.assertEqual(len(calls),1)
         self.assertNotIn('TEST-SECRET-NOT-PUBLIC',calls[0])
+    def test_requested_date_is_fixed_before_model_sampling(self):
+        schema=c.research_schema('2020-01-02')
+        self.assertEqual(schema['properties']['trade_date']['const'],'20200102')
+        for entry in schema['properties']['crosscheck']['properties'].values():
+            self.assertEqual(entry['properties']['date']['const'],'20200102')
+    def test_api_key_auth_is_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home=Path(tmp)/'home';home.mkdir(mode=0o700)
+            auth=home/'auth.json';auth.write_text(json.dumps({'auth_mode':'apikey','OPENAI_API_KEY':'TEST-only'}));auth.chmod(0o600)
+            with patch.dict(os.environ,{'CODEX_HOME':str(home)}):
+                with self.assertRaises(ValueError):c.secure_home()
+
     def test_mismatch_prevents_model_call(self):
         for field in ('close','change_pct'):
             r,m,v,e=fixtures();m['indices'][0][field]='999'
@@ -87,7 +99,7 @@ class EditorialTests(unittest.TestCase):
             def communicate(self,prompt=None,timeout=None):
                 record.update(prompt=prompt,timeout=timeout);self.output.write_text(json.dumps(r));return None,None
         with tempfile.TemporaryDirectory(prefix='TEST-auth-') as tmp:
-            home=Path(tmp)/'dedicated';home.mkdir(mode=0o700);auth=home/'auth.json';auth.write_text('TEST-ONLY');auth.chmod(0o600)
+            home=Path(tmp)/'dedicated';home.mkdir(mode=0o700);auth=home/'auth.json';auth.write_text(json.dumps({'auth_mode':'chatgpt','OPENAI_API_KEY':None}));auth.chmod(0o600)
             secrets={k:'TEST-SECRET-DO-NOT-PASS' for k in ('KIS_APP_KEY','IG_TOKEN','GITHUB_TOKEN','ASSETS_DEPLOY_KEY','CODEX_AUTH_KEY','OPENAI_API_KEY','NODE_OPTIONS')}
             with patch.dict(os.environ,{**secrets,'CODEX_HOME':str(home),'CODEX_MODEL':'TEST-model'},clear=False),patch.object(c,'load',side_effect=lambda p: {'model_isolation_verified': True} if Path(p).name == 'cloud_config.json' else mapped_load(p)),patch.object(c.shutil,'which',return_value='/TEST/codex'),patch.object(c.subprocess,'Popen',Process),patch.object(c.subprocess,'check_output',return_value='codex-cli 0.166.0'):
                 self.assertEqual(c.run_codex('PUBLIC TEST',ORIGINAL_LOAD(c.ROOT/'research.schema.json')),r)

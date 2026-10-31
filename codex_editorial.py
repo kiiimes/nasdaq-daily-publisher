@@ -137,6 +137,8 @@ def secure_home():
     for p in [home, *home.parents]: require(not p.is_symlink())
     require(home.is_dir() and home != Path.home() / '.codex' and home.stat().st_mode & 0o077 == 0)
     auth = home / 'auth.json'; require(auth.is_file() and not auth.is_symlink() and auth.stat().st_mode & 0o077 == 0)
+    auth_state = load(auth)
+    require(auth_state.get('auth_mode') == 'chatgpt' and not auth_state.get('OPENAI_API_KEY'))
     if os.environ.get('GITHUB_WORKSPACE'):
         require(not home.is_relative_to(Path(os.environ['GITHUB_WORKSPACE']).resolve()))
     return str(home)
