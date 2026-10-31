@@ -16,6 +16,6 @@ with tempfile.TemporaryDirectory(prefix='nasdaq-integration-') as directory:
     (root/'cloud_state.seed.json').write_text('{"baseline":[],"jobs":{}}')
     result=subprocess.run([sys.executable,str(root/'cloud_daily.py'),'generate'],cwd=root,
         env={k:v for k,v in os.environ.items() if k in ('PATH','HOME','TMPDIR','RUNNER_TEMP',
-             'CODEX_HOME','LANG','SYSTEMROOT','KIS_APP_KEY','KIS_APP_SECRET')},timeout=1100)
+             'CODEX_HOME','LANG','SYSTEMROOT','KIS_APP_KEY','KIS_APP_SECRET','AUTOMATION_ENABLED')},timeout=1100)
     if result.returncode: raise SystemExit(result.returncode)
     print('Subscription research, fresh KIS crosscheck, editorial composition and five-card rendering verified. No publication performed.')
