@@ -27,3 +27,11 @@ def arguments():
           '-c','tools.update_plan.enabled=false']
     for feature in DISABLED: args += ['-c',f'features.{feature}=false']
     return args
+
+
+def transport_schema(schema):
+    """Provider subset only; the original stricter schema still validates output."""
+    if isinstance(schema, list): return [transport_schema(x) for x in schema]
+    if not isinstance(schema, dict): return schema
+    return {('anyOf' if k == 'oneOf' else k): transport_schema(v)
+            for k, v in schema.items() if k not in ('$schema', 'uniqueItems')}

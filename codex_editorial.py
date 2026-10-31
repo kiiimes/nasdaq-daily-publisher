@@ -14,7 +14,7 @@ import subprocess
 import tempfile
 from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
-from editorial_runtime import arguments as isolated_arguments, VERSION as CODEX_VERSION
+from editorial_runtime import arguments as isolated_arguments, VERSION as CODEX_VERSION, transport_schema
 
 ROOT = Path(__file__).resolve().parent
 MAX_BYTES = 1_000_000
@@ -150,7 +150,7 @@ def run_codex(prompt, schema):
         work = Path(directory); os.chmod(work, 0o700)
         localhome = work / 'home'; localhome.mkdir(mode=0o700)
         env.update(HOME=str(localhome), CODEX_HOME=home, TMPDIR=str(work))
-        schema_path = work / 'schema.json'; schema_path.write_text(json.dumps(schema), encoding='utf8')
+        schema_path = work / 'schema.json'; schema_path.write_text(json.dumps(transport_schema(schema)), encoding='utf8')
         output = work / 'result.json'
         cmd = [executable, 'exec', '--sandbox', 'read-only', '--skip-git-repo-check', '--ephemeral', '--ignore-user-config', '--ignore-rules',
                '-c', 'web_search="live"', '-c', 'features.shell_tool=false', '-c', 'features.unified_exec=false', '-c', 'features.code_mode=false',
