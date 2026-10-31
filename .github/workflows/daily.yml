@@ -24,6 +24,45 @@ concurrency:
   group: nasdaq-codex-production
   cancel-in-progress: false
 jobs:
+  preflight:
+    if: >-
+      github.repository == 'kiiimes/nasdaq-daily-publisher' && github.ref == 'refs/heads/main' &&
+      (github.event_name == 'schedule' ||
+      (github.event_name == 'workflow_dispatch' && contains(fromJSON('["generate","daily","publish"]'), inputs.mode)))
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Report missing activation settings without exposing credentials
+        env:
+          AUTOMATION_READY: ${{ vars.AUTOMATION_ENABLED == 'true' }}
+          MODEL_READY: ${{ vars.MODEL_ISOLATION_VERIFIED == 'true' }}
+          PUBLISH_READY: ${{ vars.PUBLISH_ENABLED == 'true' }}
+          NEED_PUBLISH: ${{ github.event_name == 'schedule' || inputs.mode != 'generate' }}
+          HAS_SESSION_KEY: ${{ secrets.CODEX_AUTH_KEY != '' }}
+          HAS_STATE_KEY: ${{ secrets.STATE_DEPLOY_KEY != '' }}
+          HAS_KIS_KEY: ${{ secrets.KIS_APP_KEY != '' && secrets.KIS_APP_SECRET != '' }}
+          HAS_ASSETS_KEY: ${{ secrets.ASSETS_DEPLOY_KEY != '' }}
+          HAS_INSTAGRAM_TOKEN: ${{ secrets.IG_ACCESS_TOKEN != '' }}
+        run: |
+          failed=0
+          check() {
+            if [ "$2" != true ]; then
+              echo "::error::$1"
+              printf -- '- %s\n' "$1" >> "$GITHUB_STEP_SUMMARY"
+              failed=1
+            fi
+          }
+          check 'AUTOMATION_ENABLED is disabled' "$AUTOMATION_READY"
+          check 'Model isolation verification is incomplete' "$MODEL_READY"
+          check 'CODEX_AUTH_KEY is missing' "$HAS_SESSION_KEY"
+          check 'STATE_DEPLOY_KEY is missing' "$HAS_STATE_KEY"
+          check 'KIS credentials are missing' "$HAS_KIS_KEY"
+          if [ "$NEED_PUBLISH" = true ]; then
+            check 'PUBLISH_ENABLED is disabled' "$PUBLISH_READY"
+            check 'ASSETS_DEPLOY_KEY is missing' "$HAS_ASSETS_KEY"
+            check 'IG_ACCESS_TOKEN is missing' "$HAS_INSTAGRAM_TOKEN"
+          fi
+          exit "$failed"
   health:
     if: github.event_name == 'workflow_dispatch' && inputs.mode == 'health'
     permissions:
@@ -88,6 +127,7 @@ jobs:
             node ../source/verify-state-connection.mjs .
           fi
   generate:
+    needs: preflight
     if: >-
       github.repository == 'kiiimes/nasdaq-daily-publisher' && github.ref == 'refs/heads/main' &&
       vars.AUTOMATION_ENABLED == 'true' && vars.MODEL_ISOLATION_VERIFIED == 'true' &&
@@ -171,9 +211,9 @@ jobs:
           rm -rf "$CODEX_HOME" runtime/.instagram-api
           rm -f runtime/.env runtime/.kis-token.json
   publish:
-    needs: generate
+    needs: [preflight, generate]
     if: >-
-      always() && github.repository == 'kiiimes/nasdaq-daily-publisher' && github.ref == 'refs/heads/main' &&
+      always() && needs.preflight.result == 'success' && github.repository == 'kiiimes/nasdaq-daily-publisher' && github.ref == 'refs/heads/main' &&
       vars.AUTOMATION_ENABLED == 'true' && vars.MODEL_ISOLATION_VERIFIED == 'true' && vars.PUBLISH_ENABLED == 'true' &&
       ((github.event_name == 'schedule' && needs.generate.result == 'success') ||
       (github.event_name == 'workflow_dispatch' && inputs.mode == 'daily' && needs.generate.result == 'success') ||
