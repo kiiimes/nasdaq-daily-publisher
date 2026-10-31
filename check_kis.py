@@ -2,6 +2,7 @@
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 import sys
 import time
@@ -35,6 +36,8 @@ def connect():
         except HTTPError as exc:
             try:
                 body = json.loads(exc.read())
+                code = str(body.get('error_code') or body.get('msg_cd') or 'UNKNOWN')
+                if re.fullmatch(r'[A-Z0-9_]{1,16}', code): print(f'KIS_ERROR {exc.code} {code}', file=sys.stderr)
                 detail = safe(body.get('error_description') or body.get('msg1') or body.get('error_code') or '')
             except (ValueError, TypeError):
                 detail = 'Non-JSON error response'
