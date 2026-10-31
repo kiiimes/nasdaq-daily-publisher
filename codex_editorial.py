@@ -197,7 +197,11 @@ def run_codex(prompt, schema):
                 p.communicate(prompt.encode('utf8'), timeout=TIMEOUT)
             except BaseException:
                 os.killpg(p.pid, signal.SIGKILL); p.communicate(); raise RuntimeError('Codex execution failed') from None
-            if p.returncode: raise RuntimeError('Codex execution failed')
+            if p.returncode:
+                diagnostic = (work / 'stderr').read_text(errors='replace')[-20000:]
+                codes = [code for code in ('invalid_json_schema','usage_limit_reached','refresh_token_reused','insufficient_quota','invalid_grant','authentication_error') if code in diagnostic]
+                if codes: print('CODEX_ERROR ' + ','.join(codes), file=sys.stderr)
+                raise RuntimeError('Codex execution failed')
         result = load(output); validate_schema(result, schema); return result
 
 
@@ -221,6 +225,7 @@ def editorial_schema():
     r = load(ROOT / 'research.schema.json')
     s['properties']['sources'] = r['properties']['sources']
     s['properties']['research_facts'] = r['properties']['facts']
+    s['properties']['reviewed']['type'] = 'boolean'
     return strict_schema(s)
 
 

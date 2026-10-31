@@ -62,6 +62,9 @@ class EditorialTests(unittest.TestCase):
         c.validate_schema('2020-01-01',schema)
         c.validate_schema('2020-01-02T08:00:00-05:00',schema)
 
+    def test_review_flag_declares_boolean_for_provider_schema(self):
+        self.assertEqual(c.editorial_schema()['properties']['reviewed']['type'], 'boolean')
+
     def test_api_key_auth_is_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
             home=Path(tmp)/'home';home.mkdir(mode=0o700)
