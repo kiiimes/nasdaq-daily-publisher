@@ -22,6 +22,11 @@ try {
   const data=await r.json();
   if(!Array.isArray(data.data)||!data.data.length||data.error) throw Error('limit_response_invalid');
   console.log('Publishing-limit endpoint accessible. No media created or published; actual publication remains unverified.');
+  const recent=await getOnly(`https://${config.host}/${config.version}/${config.ig_user_id}/media?fields=id,caption,permalink,timestamp&limit=25`,{headers:{Authorization:`Bearer ${config.access_token}`}});
+  if(!recent.ok) throw Error('recent_posts_check_failed');
+  const posts=await recent.json();
+  if(!Array.isArray(posts.data)) throw Error('recent_posts_invalid');
+  console.log(JSON.stringify({recent_posts:posts.data.map(p=>({published_at:p.timestamp,permalink:p.permalink,dates:[...new Set((p.caption||'').match(/2026[-.]\d{2}[-.]\d{2}/g)||[])]}))}));
 } catch {
   console.error('Instagram connection check failed; no credentials or response bodies logged.');
   process.exitCode=1;
