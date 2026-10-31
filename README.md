@@ -18,6 +18,7 @@ Public source for the daily.nasdaq.kr card-generation and official Instagram pub
 ## Workflows
 - `health` (default): public-source-only offline tests and macOS Python 3.13 / Pillow 13 / AppleSDGothicNeo font check. No private checkout or secrets, zero model/KIS/Meta calls.
 - `connections`: checks the private state connection, with no auth decrypt, data collection, generation, media upload or publication. A dry-run push does not update the private repository.
+- `render`: explicit one-off rendering of reviewed independently checked private inputs for a specified trade date. No model/provider calls, auth restoration, asset deployment or publication.
 - `generate`, `daily`, `publish`: fail-closed gates. Once approved and enabled, schedule is Tuesday-Saturday 07:30 Asia/Seoul, best effort. No automatic historical backfill or date substitution.
 
 ## Safety boundaries
