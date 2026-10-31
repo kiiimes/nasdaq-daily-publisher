@@ -1,0 +1,34 @@
+name: Verify read-only KIS quotes
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  quotes:
+    if: github.repository == 'kiiimes/nasdaq-daily-publisher' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Check dated index and selected-stock quotes without model or publication
+        env:
+          KIS_APP_KEY: ${{ secrets.KIS_APP_KEY }}
+          KIS_APP_SECRET: ${{ secrets.KIS_APP_SECRET }}
+        run: |
+          python3 - <<'PY'
+          import cloud_daily as c
+          import sys
+          day=c.trade_date()
+          c.child([sys.executable,'daily_pipeline.py','fetch','--date',day],kis=True,retain_kis_cache=True)
+          print('Dated index prices verified',flush=True)
+          c.child([sys.executable,'collect_movers.py','--date',day,'--symbol','NYS:CVX:셰브런','--symbol','NAS:INTC:인텔'],kis=True)
+          print('Selected stock prices verified; no generation or publication',flush=True)
+          PY
+      - name: Always remove broker credentials
+        if: always()
+        run: rm -f .env .kis-token.json

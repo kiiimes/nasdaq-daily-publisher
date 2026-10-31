@@ -54,7 +54,7 @@ def child(args, kis=False, timeout=485, retain_kis_cache=False):
                 f.write('KIS_APP_KEY='+safe['KIS_APP_KEY']+'\nKIS_APP_SECRET='+safe['KIS_APP_SECRET']+'\n')
         result = subprocess.run(args, cwd=ROOT, env=safe, capture_output=True, timeout=timeout)
         if result.returncode:
-            if Path(args[1]).name in ('codex_editorial.py','collect_movers.py'):
+            if Path(args[1]).name in ('codex_editorial.py','collect_movers.py','daily_pipeline.py'):
                 import re
                 for line in result.stderr.decode('utf8', errors='replace').splitlines():
                     if re.fullmatch(r'(?:(?:EDITORIAL|BROKER)_DIAGNOSTIC [A-Za-z]+ [A-Za-z0-9_:,]+|BROKER_SELECTION (?:NAS|NYS|AMS) [A-Z][A-Z0-9.-]{0,9})', line):

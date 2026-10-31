@@ -2,6 +2,9 @@
 import argparse
 from datetime import datetime
 import re
+import sys
+import traceback
+from pathlib import Path
 
 
 def main():
@@ -18,7 +21,9 @@ def main():
         from fetch_market import fetch  # Lazy import: --help never accesses credentials.
         fetch(day.strftime('%Y%m%d'))  # Existing signature is fetch(day); no refresh parameter.
     except (ValueError, RuntimeError, OSError, ImportError) as exc:
-        p.exit(1, f'Fetch failed: {exc}\n')
+        locations = ','.join(f'{Path(f.filename).stem}:{f.name}:{f.lineno}' for f in traceback.extract_tb(exc.__traceback__) if Path(f.filename).name in ('daily_pipeline.py','fetch_market.py','check_kis.py'))
+        print(f'BROKER_DIAGNOSTIC {type(exc).__name__} {locations}', file=sys.stderr)
+        p.exit(1, 'Fetch failed; no verified edition saved.\n')
 
 
 if __name__ == '__main__':
