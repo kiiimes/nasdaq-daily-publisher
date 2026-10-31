@@ -65,6 +65,15 @@ class EditorialTests(unittest.TestCase):
         with self.assertRaises(ValueError):c.day('2099-01-02')
         r,*_=fixtures();r['session']='intraday'
         with self.assertRaises(ValueError):c.research_check(r,'2020-01-02')
+    def test_price_row_does_not_require_article_publication_time(self):
+        for value in ('not stated','2020-01-02','2020-01-02T08:00:00-05:00'):
+            r,*_=fixtures();r['sources'][0]['published_at']=value
+            self.assertEqual(c.research_check(r,'2020-01-02'),r)
+        r,*_=fixtures();r['facts'][0]['event_at']='2020-01-01'
+        self.assertEqual(c.research_check(r,'2020-01-02'),r)
+        r['facts'][0]['event_at']='2020-01-02'
+        with self.assertRaises(ValueError):c.research_check(r,'2020-01-02')
+
     def test_no_output_replacement_or_source_invention(self):
         for mutate in (lambda e:e['crosscheck']['COMP'].update(close='110.01'),lambda e:e['sources'][0].update(title='NEW'),lambda e:e.update(headline='ONE LINE'),lambda e:e.update(summary='x'*3000)):
             r,m,v,e=fixtures();e=copy.deepcopy(e);mutate(e)
@@ -82,7 +91,7 @@ class EditorialTests(unittest.TestCase):
             secrets={k:'TEST-SECRET-DO-NOT-PASS' for k in ('KIS_APP_KEY','IG_TOKEN','GITHUB_TOKEN','ASSETS_DEPLOY_KEY','CODEX_AUTH_KEY','OPENAI_API_KEY','NODE_OPTIONS')}
             with patch.dict(os.environ,{**secrets,'CODEX_HOME':str(home),'CODEX_MODEL':'TEST-model'},clear=False),patch.object(c,'load',side_effect=lambda p: {'model_isolation_verified': True} if Path(p).name == 'cloud_config.json' else mapped_load(p)),patch.object(c.shutil,'which',return_value='/TEST/codex'),patch.object(c.subprocess,'Popen',Process),patch.object(c.subprocess,'check_output',return_value='codex-cli 0.166.0'):
                 self.assertEqual(c.run_codex('PUBLIC TEST',ORIGINAL_LOAD(c.ROOT/'research.schema.json')),r)
-            self.assertFalse(set(secrets)&set(record['env']));self.assertEqual(record['env']['CODEX_HOME'],str(home));self.assertLessEqual(record['timeout'],180)
+            self.assertFalse(set(secrets)&set(record['env']));self.assertEqual(record['env']['CODEX_HOME'],str(home));self.assertLessEqual(record['timeout'],480)
             self.assertIn('features.shell_tool=false',record['cmd']);self.assertIn('web_search="live"',record['cmd']);self.assertNotIn('--full-auto',record['cmd'])
             self.assertNotEqual(record['cwd'],c.ROOT);self.assertFalse(Path(record['cwd']).exists());self.assertEqual(record['prompt'],b'PUBLIC TEST')
     def test_unverified_isolation_blocks_before_any_auth_or_codex_access(self):

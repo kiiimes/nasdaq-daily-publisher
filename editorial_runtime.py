@@ -22,7 +22,7 @@ def arguments():
             and m['experimental_supported_tools']==[] and m['tool_mode']=='direct'
             and m['supports_search_tool'] is False and m['use_responses_lite'] is False):
         raise ValueError('Editorial tool policy rejected')
-    args=['--model',MODEL,'-c','model_catalog_json='+json.dumps(str(catalog)),
+    args=['--model',MODEL,'-c','model_reasoning_effort="medium"','-c','model_catalog_json='+json.dumps(str(catalog)),
           '-c','tools.experimental_request_user_input.enabled=false',
           '-c','tools.update_plan.enabled=false']
     for feature in DISABLED: args += ['-c',f'features.{feature}=false']

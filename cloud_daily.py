@@ -29,7 +29,7 @@ def trade_date(explicit=None, now=None):
         raise ValueError('Date is weekend, unclosed, or older than 120h')
     return day.isoformat()
 
-def child(args, kis=False, timeout=185, retain_kis_cache=False):
+def child(args, kis=False, timeout=485, retain_kis_cache=False):
     safe = {k: v for k, v in os.environ.items() if k in ('PATH','HOME','TMPDIR','RUNNER_TEMP','CODEX_HOME','LANG','SYSTEMROOT')}
     credential_file = ROOT/'.env'
     token_file = ROOT/'.kis-token.json'

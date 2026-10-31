@@ -197,11 +197,14 @@ jobs:
         env:
           CODEX_AUTH_KEY: ${{ secrets.CODEX_AUTH_KEY }}
         run: node codex_session.mjs restore --state codex_session.enc --home "$CODEX_HOME" --repository kiiimes/nasdaq-instagram-automation
-      - name: Verify subscription research without generating or publishing cards
+      - name: Verify complete subscription generation in disposable workspace
         if: github.event_name == 'workflow_dispatch' && inputs.mode == 'editorial'
+        env:
+          KIS_APP_KEY: ${{ secrets.KIS_APP_KEY }}
+          KIS_APP_SECRET: ${{ secrets.KIS_APP_SECRET }}
         run: |
-          TRADE_DATE=$(python3 -c 'from cloud_daily import trade_date; print(trade_date(None))')
-          python3 codex_editorial.py research --date "$TRADE_DATE" --output "$RUNNER_TEMP/editorial-check.json"
+          export TMPDIR="$(cd "$RUNNER_TEMP" && pwd -P)"
+          python3 ../source/verify_daily_pipeline.py
       - name: Generate independently verified date-aligned edition
         if: github.event_name != 'workflow_dispatch' || inputs.mode != 'editorial'
         env:
