@@ -14,6 +14,7 @@ import subprocess
 import tempfile
 from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
+from editorial_runtime import arguments as isolated_arguments, VERSION as CODEX_VERSION
 
 ROOT = Path(__file__).resolve().parent
 MAX_BYTES = 1_000_000
@@ -136,12 +137,12 @@ def require_model_isolation():
 
 
 def run_codex(prompt, schema):
-    # CLI flags below are hygiene, not an enforced tool allowlist. In particular,
-    # ShellTool=false does not prevent separately registered apply_patch reads.
-    # Fail BEFORE inspecting auth, discovering Codex, or starting any process.
+    # Pinned static catalog prevents local tool registration (including apply_patch).
+    # The runner verifies forced forbidden calls before restoring credentials.
     require_model_isolation()
     home = secure_home()
     executable = shutil.which('codex'); require(executable is not None)
+    require(subprocess.check_output([executable, '--version'], text=True).strip() == 'codex-cli ' + CODEX_VERSION)
     # No parent credential variables, proxy env, NODE_OPTIONS, PYTHONPATH, or API key.
     allowed = ('PATH', 'LANG', 'LC_ALL', 'LC_CTYPE', 'TZ', 'SSL_CERT_FILE', 'SSL_CERT_DIR', 'SYSTEMROOT', 'WINDIR')
     env = {k: os.environ[k] for k in allowed if k in os.environ}
@@ -158,9 +159,7 @@ def run_codex(prompt, schema):
                '-c', 'features.image_generation=false', '-c', 'features.view_image=false', '-c', 'features.multi_agent_v2=false',
                '-c', 'features.apps=false', '-c', 'features.multi_agent=false', '-c', 'features.hooks=false', '-c', 'features.remote_plugin=false',
                '-c', 'cli_auth_credentials_store="file"', '--output-schema', str(schema_path), '-o', str(output)]
-        model = os.environ.get('CODEX_MODEL')
-        if model:
-            require(re.fullmatch(r'[A-Za-z0-9._-]{1,100}', model) is not None); cmd += ['--model', model]
+        cmd += isolated_arguments()
         cmd += ['-']
         # Private files, not PIPE buffers/logs. Removed with the entire temporary directory.
         with open(work / 'stdout', 'wb') as out, open(work / 'stderr', 'wb') as err:

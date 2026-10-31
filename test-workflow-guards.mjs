@@ -8,7 +8,7 @@ test('session home uses runtime environment, not unavailable job runner context'
  assert.ok(workflow.indexOf('Initialize isolated session home')<workflow.indexOf('Checkout latest private state'));
 });
 test('manual render requires explicit date and trusted manual main dispatch only',()=>{
- assert.match(workflow,/options: \[health, connections, generate, daily, publish, render\]/);
+ assert.match(workflow,/options: \[health, connections, editorial, generate, daily, publish, render\]/);
  assert.match(workflow,/trade_date:\n        description: [^\n]+\n        type: string\n        default: ''\n        required: false/);
  const render=workflow.split('\n  render:')[1];
  assert.ok(render);

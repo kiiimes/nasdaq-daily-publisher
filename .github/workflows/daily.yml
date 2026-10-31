@@ -6,7 +6,7 @@ on:
     inputs:
       mode:
         type: choice
-        options: [health, connections, generate, daily, publish, render]
+        options: [health, connections, editorial, generate, daily, publish, render]
         default: daily
         required: true
       trade_date:
@@ -28,7 +28,7 @@ jobs:
     if: >-
       github.repository == 'kiiimes/nasdaq-daily-publisher' && github.ref == 'refs/heads/main' &&
       (github.event_name == 'schedule' ||
-      (github.event_name == 'workflow_dispatch' && contains(fromJSON('["generate","daily","publish"]'), inputs.mode)))
+      (github.event_name == 'workflow_dispatch' && contains(fromJSON('["editorial","generate","daily","publish"]'), inputs.mode)))
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
@@ -37,7 +37,7 @@ jobs:
           AUTOMATION_READY: ${{ vars.AUTOMATION_ENABLED == 'true' }}
           MODEL_READY: ${{ vars.MODEL_ISOLATION_VERIFIED == 'true' }}
           PUBLISH_READY: ${{ vars.PUBLISH_ENABLED == 'true' }}
-          NEED_PUBLISH: ${{ github.event_name == 'schedule' || inputs.mode != 'generate' }}
+          NEED_PUBLISH: ${{ github.event_name == 'schedule' || (inputs.mode == 'daily' || inputs.mode == 'publish') }}
           HAS_SESSION_KEY: ${{ secrets.CODEX_AUTH_KEY != '' }}
           HAS_STATE_KEY: ${{ secrets.STATE_DEPLOY_KEY != '' }}
           HAS_KIS_KEY: ${{ secrets.KIS_APP_KEY != '' && secrets.KIS_APP_SECRET != '' }}
@@ -132,7 +132,7 @@ jobs:
       github.repository == 'kiiimes/nasdaq-daily-publisher' && github.ref == 'refs/heads/main' &&
       vars.AUTOMATION_ENABLED == 'true' && vars.MODEL_ISOLATION_VERIFIED == 'true' &&
       (github.event_name == 'schedule' ||
-      (github.event_name == 'workflow_dispatch' && (inputs.mode == 'generate' || inputs.mode == 'daily')))
+      (github.event_name == 'workflow_dispatch' && (inputs.mode == 'editorial' || inputs.mode == 'generate' || inputs.mode == 'daily')))
     permissions:
       contents: read
     runs-on: macos-latest
@@ -162,6 +162,12 @@ jobs:
           test "$AUTOMATION_ENABLED" = true
           test "$MODEL_ISOLATION_VERIFIED" = true
           node --input-type=module -e "import fs from 'node:fs'; const c=JSON.parse(fs.readFileSync('cloud_config.json','utf8')); if(c.model_isolation_verified !== true) { console.error('Model isolation is unverified; generation disabled'); process.exit(1); }"
+      - name: Verify pinned web-only tool boundary BEFORE private checkout
+        working-directory: source
+        run: |
+          npm install --global '@openai/codex@0.166.0'
+          export TMPDIR="$(cd "$RUNNER_TEMP" && pwd -P)"
+          python3 verify_editorial_isolation.py
       - name: Initialize isolated session home using runner environment
         working-directory: source
         run: |
@@ -191,7 +197,13 @@ jobs:
         env:
           CODEX_AUTH_KEY: ${{ secrets.CODEX_AUTH_KEY }}
         run: node codex_session.mjs restore --state codex_session.enc --home "$CODEX_HOME" --repository kiiimes/nasdaq-instagram-automation
+      - name: Verify subscription research without generating or publishing cards
+        if: github.event_name == 'workflow_dispatch' && inputs.mode == 'editorial'
+        run: |
+          TRADE_DATE=$(python3 -c 'from cloud_daily import trade_date; print(trade_date(None))')
+          python3 codex_editorial.py research --date "$TRADE_DATE" --output "$RUNNER_TEMP/editorial-check.json"
       - name: Generate independently verified date-aligned edition
+        if: github.event_name != 'workflow_dispatch' || inputs.mode != 'editorial'
         env:
           KIS_APP_KEY: ${{ secrets.KIS_APP_KEY }}
           KIS_APP_SECRET: ${{ secrets.KIS_APP_SECRET }}

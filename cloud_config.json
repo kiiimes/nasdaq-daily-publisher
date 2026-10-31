@@ -1,6 +1,6 @@
 {
   "codex_version": "0.166.0",
-  "codex_version_status": "CLI help verified; model tool isolation and managed authentication NOT verified",
+  "codex_version_status": "0.166.0 static web-only catalog; forced shell and apply_patch calls rejected in offline verification",
   "python": "3.13",
   "pillow": "13.0.0",
   "private_repository": "kiiimes/nasdaq-instagram-automation",
@@ -8,6 +8,6 @@
   "ig_host": "graph.facebook.com",
   "ig_version": "v26.0",
   "ig_id": "17841426703447281",
-  "model_isolation_verified": false,
+  "model_isolation_verified": true,
   "source_repository": "kiiimes/nasdaq-daily-publisher"
 }

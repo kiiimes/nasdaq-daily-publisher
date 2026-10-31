@@ -28,8 +28,8 @@ async function fixture(t) {
   return {root, source, runtime};
 }
 const contents = (dir, name) => fs.readFile(path.join(dir, name), 'utf8');
-test('explicit runtime allowlist is exactly sixteen unique root-level code/config files', () => {
-  assert.equal(RUNTIME_FILES.length, 16); assert.equal(new Set(RUNTIME_FILES).size, 16);
+test('explicit runtime allowlist is exactly eighteen unique root-level code/config files', () => {
+  assert.equal(RUNTIME_FILES.length, 18); assert.equal(new Set(RUNTIME_FILES).size, 18);
   assert.ok(Object.isFrozen(RUNTIME_FILES));
   for (const name of RUNTIME_FILES) {
     assert.equal(path.basename(name), name);
@@ -47,7 +47,7 @@ test('staging copies only allowlisted source and preserves every private sentine
   await fs.mkdir(path.join(source, 'editions')); await fs.mkdir(path.join(runtime, 'editions'));
   await fs.writeFile(path.join(runtime, 'editions/TEST'), 'TEST-edition-preserved');
   await fs.writeFile(path.join(runtime, '.git/TEST'), 'TEST-git-preserved');
-  assert.deepEqual(await stageRuntime(source, runtime, {run: mockGit(calls)}), {ok: true, files_staged: 16, private_state_copied: false});
+  assert.deepEqual(await stageRuntime(source, runtime, {run: mockGit(calls)}), {ok: true, files_staged: 18, private_state_copied: false});
   for (const name of RUNTIME_FILES) assert.equal(await contents(runtime, name), 'TEST-public-' + name);
   for (const name of privateFiles) assert.equal(await contents(runtime, name), 'TEST-private-preserved');
   assert.equal(await contents(runtime, 'editions/TEST'), 'TEST-edition-preserved');

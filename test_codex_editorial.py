@@ -80,7 +80,7 @@ class EditorialTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix='TEST-auth-') as tmp:
             home=Path(tmp)/'dedicated';home.mkdir(mode=0o700);auth=home/'auth.json';auth.write_text('TEST-ONLY');auth.chmod(0o600)
             secrets={k:'TEST-SECRET-DO-NOT-PASS' for k in ('KIS_APP_KEY','IG_TOKEN','GITHUB_TOKEN','ASSETS_DEPLOY_KEY','CODEX_AUTH_KEY','OPENAI_API_KEY','NODE_OPTIONS')}
-            with patch.dict(os.environ,{**secrets,'CODEX_HOME':str(home),'CODEX_MODEL':'TEST-model'},clear=False),patch.object(c,'load',side_effect=lambda p: {'model_isolation_verified': True} if Path(p).name == 'cloud_config.json' else mapped_load(p)),patch.object(c.shutil,'which',return_value='/TEST/codex'),patch.object(c.subprocess,'Popen',Process):
+            with patch.dict(os.environ,{**secrets,'CODEX_HOME':str(home),'CODEX_MODEL':'TEST-model'},clear=False),patch.object(c,'load',side_effect=lambda p: {'model_isolation_verified': True} if Path(p).name == 'cloud_config.json' else mapped_load(p)),patch.object(c.shutil,'which',return_value='/TEST/codex'),patch.object(c.subprocess,'Popen',Process),patch.object(c.subprocess,'check_output',return_value='codex-cli 0.166.0'):
                 self.assertEqual(c.run_codex('PUBLIC TEST',ORIGINAL_LOAD(c.ROOT/'research.schema.json')),r)
             self.assertFalse(set(secrets)&set(record['env']));self.assertEqual(record['env']['CODEX_HOME'],str(home));self.assertLessEqual(record['timeout'],180)
             self.assertIn('features.shell_tool=false',record['cmd']);self.assertIn('web_search="live"',record['cmd']);self.assertNotIn('--full-auto',record['cmd'])
@@ -108,7 +108,7 @@ class EditorialTests(unittest.TestCase):
             error = io.StringIO()
             with patch('sys.argv', ['codex_editorial.py', 'research', '--date', '2020-01-02', '--output', str(target)]), \
                     patch.object(c, 'secure_home') as auth, patch.object(c.subprocess, 'Popen') as process, \
-                    contextlib.redirect_stderr(error):
+                    patch.object(c, 'load', side_effect=mapped_load), contextlib.redirect_stderr(error):
                 with self.assertRaises(SystemExit) as stopped:
                     c.main()
             self.assertEqual(stopped.exception.code, 1)

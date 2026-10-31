@@ -10,6 +10,7 @@ export const RUNTIME_FILES = Object.freeze([
   'collect_movers.py', 'daily_pipeline.py', 'editorial.schema.json',
   'fetch_market.py', 'instagram-api.mjs', 'instagram-watch.mjs',
   'research.schema.json', 'upload-media.mjs', 'stage-runtime.mjs',
+  'editorial_runtime.py', 'editorial-models.json',
 ]);
 async function directory(input) {
   const absolute = path.resolve(input);

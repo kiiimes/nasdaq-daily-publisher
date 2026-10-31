@@ -11,9 +11,9 @@ Public source for the daily.nasdaq.kr card-generation and official Instagram pub
 ## Current readiness
 **Automation, model execution and publication remain disabled.**
 
-- Model tool isolation is NOT verified. `cloud_config.json` deliberately sets `model_isolation_verified:false`; do not enable model execution without an enforced tool boundary.
-- Managed Codex login and encrypted session seed are pending. No existing laptop auth cache is reused.
-- Instagram token/account verification and a non-publishing end-to-end test are pending. A passing environment or SSH-connection test is not a successful generation or Instagram publication.
+- Codex 0.166.0 uses a fixed `editorial-models.json` catalog: shell disabled, no apply_patch handler, no experimental tools, direct tool mode, and optional capabilities disabled. `verify_editorial_isolation.py` verifies that only hosted web search is offered and forced shell/file tool calls are rejected, before private state or credentials are restored. Unknown CLI versions are rejected.
+- A dedicated ChatGPT subscription login is encrypted in the private state repository. No existing laptop auth cache is reused; API keys are not passed to production model calls.
+- Instagram account identity and publishing-limit access have been verified; an end-to-end test is pending. A passing environment or SSH-connection test is not a successful generation or Instagram publication.
 
 ## Workflows
 - `health`: public-source-only offline tests and macOS Python 3.13 / Pillow 13 / AppleSDGothicNeo font check. No private checkout or secrets, zero model/KIS/Meta calls.
