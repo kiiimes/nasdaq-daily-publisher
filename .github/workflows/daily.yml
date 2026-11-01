@@ -2,7 +2,7 @@ name: NASDAQ public runner
 # Renderer: editorial-v3-reference (five cards, or six with a source-backed focus).
 on:
   schedule:
-    - cron: '0 22 * * 1-5'  # Tue-Sat 07:00 Asia/Seoul (UTC+9)
+    - cron: '0 22 * * 0-4'  # Mon-Fri 07:00 Asia/Seoul (UTC+9)
   workflow_dispatch:
     inputs:
       mode:

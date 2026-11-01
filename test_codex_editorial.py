@@ -40,6 +40,12 @@ def fixtures():
     for p in picks:e[p['direction']].append({'symbol':p['symbol'],'name':p['name'],'change_pct':p['change_pct'],'business':'TEST business','metrics':[],'takeaway':'','tag':'TEST','why':'TEST synthetic cause only','source_ids':['TEST']})
     return r,m,movers,e
 
+class BriefingDates(unittest.TestCase):
+    def test_friday_close_is_monday_briefing(self):
+        self.assertEqual(c.briefing_date('2026-10-30'), '2026-11-02')
+    def test_monday_close_is_tuesday_briefing(self):
+        self.assertEqual(c.briefing_date('2026-11-02'), '2026-11-03')
+
 class EditorialTests(unittest.TestCase):
     def setUp(self):
         self.loader=patch.object(c,'load',side_effect=mapped_load); self.loader.start()

@@ -23,7 +23,7 @@ Public source for the daily.nasdaq.kr card-generation and official Instagram pub
 - `connections`: checks the private state connection, with no auth decrypt, data collection, generation, media upload or publication. A dry-run push does not update the private repository.
 - `editorial`: live subscription research, fresh KIS crosscheck, composition and rendering in a disposable workspace; never publishes or replaces saved editions.
 - `render`: explicit one-off rendering of reviewed independently checked private inputs for a specified trade date. No model/provider calls, auth restoration, asset deployment or publication.
-- `generate`, `daily`, `publish`: fail-closed gates. Once approved and enabled, schedule is Tuesday-Saturday 07:00 Asia/Seoul, best effort. No automatic historical backfill or date substitution.
+- `generate`, `daily`, `publish`: fail-closed gates. Once approved and enabled, schedule is Monday-Friday 07:00 Asia/Seoul, best effort. No automatic historical backfill or date substitution.
 
 ### Reposting a deleted post
 Open **Run workflow**, keep branch **main**, select **repost**, and enter the US trade date (for example `2026-10-30`) in **trade_date**. This explicitly authorizes another Instagram post for that date; it does not check whether the original Instagram post was deleted.
@@ -47,4 +47,4 @@ New daily/generate editions use the approved navy/white editorial design with a 
 
 Research prioritizes familiar US large-cap companies; at most one less familiar exception needs a material market/Korea link. Reasons identify the announcement, period and supported actual/guidance/consensus figures instead of vague sentiment. Named Korean supply links need evidence. Korea impacts distinguish verified business mechanisms from future interpretation without requiring repetitive uncertainty keywords. Focus content requires explicit `focus.0` source coverage. These are editorial instructions and evidence checks, not an automatic guarantee of causal truth.
 
-The Tue–Sat 07:00 KST schedule and manual daily trigger are unchanged. Already-posted editions are not regenerated or reposted by this design update. `repost` continues reusing saved images.
+The schedule is Mon–Fri 07:00 KST (Sun–Thu 22:00 UTC); Monday covers Friday US regular close, and Tuesday–Friday cover the preceding US weekday. Briefing dates skip weekends. Korean public holidays are not automatically excluded. The manual daily trigger remains available. Already-posted editions are not regenerated or reposted by this design update. `repost` continues reusing saved images.

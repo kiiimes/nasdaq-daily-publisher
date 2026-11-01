@@ -10,6 +10,9 @@ class Dates(unittest.TestCase):
         self.assertEqual(daily.trade_date(now=datetime(2026,10,30,20,1,tzinfo=timezone.utc)),'2026-10-30')
     def test_weekend(self):
         self.assertEqual(daily.trade_date(now=datetime(2026,11,1,12,tzinfo=timezone.utc)),'2026-10-30')
+    def test_korean_monday_and_tuesday_mornings(self):
+        self.assertEqual(daily.trade_date(now=datetime(2026,11,1,22,tzinfo=timezone.utc)), '2026-10-30')
+        self.assertEqual(daily.trade_date(now=datetime(2026,11,2,22,tzinfo=timezone.utc)), '2026-11-02')
     def test_explicit(self):
         now=datetime(2026,10,30,20,1,tzinfo=timezone.utc)
         for value in ['2026-10-31','2026-10-23','2026-11-02','2026-02-30','x']:
