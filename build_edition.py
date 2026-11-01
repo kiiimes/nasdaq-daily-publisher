@@ -14,7 +14,7 @@ import zipfile
 from PIL import Image, ImageDraw, ImageFont
 
 FONT = '/System/Library/Fonts/AppleSDGothicNeo.ttc'
-NAVY, BLUE, RED, WHITE, GRAY, PALE = '#132447', '#2459D3', '#D83C44', '#FFFFFF', '#66738A', '#F2F5F9'
+NAVY, BLUE, RED, WHITE, GRAY, PALE = '#031E38', '#2459D3', '#D83C44', '#FFFFFF', '#66738A', '#F2F5F9'
 INDEX_NAMES = {'COMP': '나스닥', 'SPX': 'S&P 500', '.DJI': '다우'}
 DISCLAIMER = '한국장 영향은 뉴스에 기반한 해석이며 이후 국내 실제 반응은 미반영했습니다.'
 FILES = {*(f'{i:02d}.png' for i in range(1, 7)), 'caption.txt', 'sources.txt', 'preview.jpg', 'validation.json', 'index.html', 'cards.zip', 'api-images'}
@@ -94,6 +94,22 @@ def validate(m, e, movers=None):
     for i, item in enumerate(e.get('focus', [])):
         text(item['title'], 'Focus title'); text(item['body'], 'Focus body')
         evidence(f'focus.{i}', item['source_ids'])
+    def metric_evidence(item, claim):
+        metrics = item.get('metrics', [])
+        require(isinstance(metrics, list) and len(metrics) <= 2, 'At most two metrics')
+        for metric in metrics:
+            for key in ('label', 'value'):
+                text(metric[key], 'Metric ' + key)
+            require(isinstance(metric.get('period', ''), str), 'Invalid metric period')
+            evidence(claim, metric['source_ids'])
+        require(isinstance(item.get('takeaway', ''), str), 'Invalid takeaway')
+    for i, item in enumerate(e.get('focus', [])):
+        metric_evidence(item, f'focus.{i}')
+    for direction in ('up', 'down'):
+        for item in e[direction]:
+            metric_evidence(item, direction + '.' + item['symbol'])
+    if e.get('closing_note'):
+        text(e['closing_note'], 'Closing note'); evidence('summary')
     indices = m['indices']
     require(isinstance(indices, list) and len(indices) == 3 and {r['symbol'] for r in indices} == set(INDEX_NAMES), 'Need COMP, SPX, .DJI exactly once')
     if movers is not None:
@@ -152,6 +168,9 @@ def validate(m, e, movers=None):
         caption += '\n' + label + '\n' + '\n'.join(f"{r['name']} ({r['symbol']}) {pct(r)} | {r['tag']}\n{r['why']}" for r in e[direction]) + '\n'
     for item in e.get('focus', []):
         caption += '\n🔎 ' + item['title'] + '\n' + item['body'] + '\n'
+    for item in [*e['up'], *e['down'], *e.get('focus', [])]:
+        for metric in item.get('metrics', []):
+            caption += '\n' + metric['label'] + ': ' + metric['value'] + ' (' + metric.get('period', '') + ')'
     caption += '\n🇰🇷 한국장 영향\n' + '\n'.join(r['title'] + ': ' + r['body'] for r in e['korea'])
     caption += '\n\n※ 전 거래일 정규장 종가 대비 · 시간외 제외 · 종목은 선정 사례, 전체 시장 순위 아님.\n※ ' + DISCLAIMER
     caption += '\n출처: ' + ', '.join(s['title'] for s in e['sources']) + '\n\n' + ' '.join(tags)
@@ -210,86 +229,137 @@ def render_cards(out, m, e):
     trade = date(e['trade_date'], '%Y%m%d')
     trade_label = trade.strftime('%Y.%m.%d') + '(' + '월화수목금토일'[trade.weekday()] + ')'
     footer = '미국 ' + trade_label + ' 정규장 · 전 거래일 대비'
-    briefing = '한국시간 ' + e['kst_briefing_date'] + ' 아침 기준'
     count = card_count(e)
+    source_map = {s['id']: s for s in e['sources']}
 
-    def draw_text(d, box, value, size, color=NAVY, bold=False, lines=None):
-        # A fixed scale avoids silently making one company's name/body smaller.
+    def tx(d, box, value, size=44, color=NAVY, bold=False, lines=None):
         fit(d, box, value, size, color, bold, lines, min_size=size)
+
+    def panel(d, rect):
+        d.rounded_rectangle(rect, radius=22, fill=PALE)
+
+    def rule(d, y, dark=False):
+        d.line((54, y, 1026, y), fill='#CAD4E0' if not dark else '#B9C9D9', width=2)
 
     def base(n, title=None, dark=False):
         im = Image.new('RGB', (1080, 1350), NAVY if dark else WHITE)
-        d = ImageDraw.Draw(im)
-        ink = WHITE if dark else NAVY
-        draw_text(d, (76, 48, 800, 100), '매일 나스닥', 28, ink, True)
-        draw_text(d, (870, 48, 1004, 100), f'{n:02d} / {count:02d}', 26, ink)
+        d = ImageDraw.Draw(im); ink = WHITE if dark else NAVY
+        tx(d, (54, 43, 790, 105), '매일 나스닥', 42, ink, True)
+        tx(d, (908, 48, 1030, 103), f'{n:02d} / {count:02d}', 34, ink)
         if title:
-            draw_text(d, (76, 156, 1004, 300), title, 64, ink, True, 2)
-        d.line((76, 1220, 1004, 1220), fill='#74819A' if dark else '#DDE3EB', width=2)
-        draw_text(d, (76, 1240, 1004, 1280), footer, 26, '#B4C2D7' if dark else GRAY)
-        draw_text(d, (76, 1290, 1004, 1330), briefing + ' · 상세 출처는 캡션·출처 목록', 26, '#B4C2D7' if dark else GRAY)
+            tx(d, (54, 133, 1030, 250), title, 94 if len(title) <= 12 else 76, ink, True, 1)
         return im, d
 
-    def panel(d, rect):
-        d.rounded_rectangle(rect, radius=20, fill=PALE)
-
-    def save(im, n):
+    def finish(im, d, n, ids=None, dark=False):
+        ink = '#D7E0EB' if dark else NAVY
+        if not dark:
+            # Keep attribution on the card without squeezing the article body.
+            labels = list(dict.fromkeys(source_map[s]['title'] for s in (ids or []) if s in source_map))
+            if labels:
+                label = '출처: ' + ' · '.join(labels)
+                if len(label) > 65: label = '출처: 기업 발표·시세 자료 (상세 링크는 출처 목록)'
+                tx(d, (54, 1208, 1026, 1288), label, 28, ink, lines=2)
+            rule(d, 1289)
+        tx(d, (54, 1300, 1026, 1343), footer, 28, ink, lines=1)
         im.save(out / f'{n:02d}.png')
         im.save(out / 'api-images' / f'{n:02d}.jpg', quality=95, subsampling=0)
 
+    def metric_color(value):
+        return BLUE if value.startswith(('-', '−')) else RED if value.startswith('+') else NAVY
+
     im, d = base(1, dark=True)
-    draw_text(d, (76, 150, 1004, 205), '미국 ' + trade_label + ' 정규장 마감', 32, WHITE)
-    draw_text(d, (76, 218, 1004, 263), briefing, 27, '#B4C2D7')
-    draw_text(d, (76, 320, 1004, 555), e['headline'], 80, WHITE, True, 2)
-    draw_text(d, (76, 583, 1004, 705), e['subheadline'], 38, '#B4C2D7', False, 2)
-    for x, item, col in ((76, e['up'][0], RED), (552, e['down'][0], BLUE)):
-        d.rounded_rectangle((x, 760, x + 452, 1030), radius=20, fill=WHITE)
-        draw_text(d, (x+28, 790, x+424, 864), item['name'], 58, NAVY, True, 1)
-        draw_text(d, (x+28, 873, x+424, 916), item['symbol'], 27, GRAY)
-        draw_text(d, (x+28, 940, x+424, 1015), pct(item), 58, col, True)
+    tx(d, (405, 43, 885, 79), '미국 ' + trade_label + ' 정규장 마감', 27, WHITE, lines=1)
+    tx(d, (405, 89, 885, 125), '한국시간 ' + e['kst_briefing_date'] + ' 아침 기준', 27, WHITE, lines=1)
+    tx(d, (54, 200, 1030, 525), e['headline'], 124, WHITE, True, 2)
+    tx(d, (54, 564, 1030, 676), e['subheadline'], 56, '#B7D7F0', True, 2)
+    # Lead with the larger absolute move, as in the approved cover.
+    leads = sorted([e['up'][0], e['down'][0]], key=lambda r: abs(number(r['change_pct'])), reverse=True)
+    for x, item in zip((54, 558), leads):
+        d.rounded_rectangle((x, 713, x+468, 1092), radius=20, fill=WHITE)
+        tx(d, (x+38, 740, x+430, 922), item['name'], 76, NAVY, True, 2)
+        tx(d, (x+38, 927, x+430, 981), item['symbol'], 36, NAVY)
+        tx(d, (x+38, 1000, x+430, 1080), pct(item), 82, RED if number(item['change_pct']) > 0 else BLUE, True, 1)
+    rule(d, 1143, True)
     quotes = {r['symbol']: r for r in m['indices']}
-    draw_text(d, (76, 1080, 1004, 1204), ' · '.join(INDEX_NAMES[s] + ' ' + pct(quotes[s]) for s in INDEX_NAMES), 32, WHITE)
-    save(im, 1)
+    tx(d, (54, 1175, 1026, 1247), ' · '.join(INDEX_NAMES[s] + ' ' + pct(quotes[s]) for s in ('COMP','SPX')), 47, WHITE, True, 1)
+    finish(im, d, 1, dark=True)
+
     for n, direction, title, col in ((2, 'up', '강세 종목', RED), (3, 'down', '약세 종목', BLUE)):
         im, d = base(n, title)
-        draw_text(d, (76, 270, 1004, 318), '정규장 · 선정 사례 · 전체 시장 순위 아님', 27, GRAY)
-        for i, item in enumerate(e[direction]):
-            y = 350 + i * 388
-            panel(d, (76, y, 1004, y+364))
-            draw_text(d, (104, y+24, 734, y+96), item['name'], 58, NAVY, True, 1)
-            draw_text(d, (750, y+24, 980, y+96), pct(item), 58, col, True, 1)
-            descriptor = item['symbol'] + (' · ' + item['business'] if item.get('business') else '')
-            draw_text(d, (104, y+99, 980, y+142), descriptor, 27, GRAY)
-            d.rectangle((104, y+160, 111, y+198), fill=col)
-            draw_text(d, (128, y+148, 980, y+203), item['tag'], 40, NAVY, True, 1)
-            draw_text(d, (128, y+209, 976, y+358), item['why'], 38, NAVY, False, 3)
-        draw_text(d, (76, 1145, 1004, 1205), '등락 배경: 기업 발표·보도에 기반한 해석', 26, GRAY)
-        save(im, n)
+        items = e[direction]
+        ids = []
+        for i, item in enumerate(items):
+            y = 270 + i*483
+            panel(d, (54, y, 1026, y+450))
+            tx(d, (94, y+27, 650, y+125), item['name'], 76, NAVY, True, 1)
+            tx(d, (670, y+27, 1000, y+125), pct(item), 76, col, True, 1)
+            tx(d, (94, y+143, 1000, y+197), item['symbol'] + (' · ' + item['business'] if item.get('business') else ''), 36, NAVY, lines=1)
+            d.rectangle((94, y+237, 105, y+294), fill=col)
+            tx(d, (135, y+225, 1000, y+294), item['tag'], 46, NAVY, True, 1)
+            tx(d, (135, y+290, 1000, y+450), item['why'], 42, NAVY, False, 3)
+            ids.extend(item['source_ids'])
+        if len(items) == 1:
+            item = items[0]; metrics = item.get('metrics', [])
+            if metrics:
+                rule(d, 765)
+                width = 972 // len(metrics)
+                for i, metric in enumerate(metrics):
+                    x = 54+i*width
+                    if i: d.line((x, 805, x, 950), fill='#CAD4E0', width=2)
+                    tx(d, (x+30, 807, x+width-22, 880), metric['label'], 38, NAVY, lines=1)
+                    tx(d, (x+30, 890, x+width-22, 975), metric['value'], 72, metric_color(metric['value']), True, 1)
+                    tx(d, (x+30, 968, x+width-22, 998), metric.get('period', ''), 25, NAVY, lines=1)
+                rule(d, 1010)
+            if item.get('takeaway'):
+                panel(d, (54, 1030, 1026, 1135))
+                tx(d, (84, 1057, 1000, 1124), item['takeaway'], 40, NAVY, True, 1)
+        finish(im, d, n, ids)
+
     for item in e.get('focus', []):
         im, d = base(4, item['title'])
-        draw_text(d, (76, 330, 1004, 392), '오늘의 핵심 이슈', 28, BLUE)
-        d.line((76, 420, 1004, 420), fill='#DDE3EB', width=2)
-        draw_text(d, (76, 470, 1004, 1100), item['body'], 36, NAVY, False, 12)
-        save(im, 4)
+        tx(d, (54, 260, 1026, 325), item.get('subtitle') or '오늘의 핵심 이슈', 44, NAVY, lines=1)
+        metrics = item.get('metrics', [])
+        if metrics:
+            panel(d, (54, 350, 1026, 801))
+            tx(d, (94, 377, 1000, 465), item.get('subject') or '핵심 수치', 56, NAVY, True, 1)
+            for i, metric in enumerate(metrics):
+                y = 474+i*157
+                d.rounded_rectangle((77, y, 1003, y+145), radius=16, fill=WHITE)
+                tx(d, (112, y+38, 532, y+105), metric['label'], 42, NAVY, True, 1)
+                tx(d, (567, y+14, 980, y+95), metric['value'], 68, metric_color(metric['value']), True, 1)
+                tx(d, (567, y+102, 980, y+139), metric.get('period', ''), 25, NAVY, lines=1)
+            tx(d, (54, 837, 1026, 1030), item['body'], 42, NAVY, lines=3)
+        else:
+            rule(d, 350)
+            tx(d, (54, 400, 1026, 1050), item['body'], 44, NAVY, lines=10)
+        if item.get('takeaway'):
+            panel(d, (54, 1060, 1026, 1153))
+            tx(d, (84, 1080, 1000, 1142), item['takeaway'], 40, NAVY, True, 1)
+        finish(im, d, 4, item['source_ids'])
+
     im, d = base(count-1, '한국장과 연결하면')
-    draw_text(d, (76, 274, 1004, 319), '미국 마감 당시 해석 · 이후 한국장 결과 미반영', 27, GRAY)
-    step = 390 if len(e['korea']) == 2 else 264
+    tx(d, (54, 260, 1026, 322), '미국 마감 당시 해석 · 이후 한국장 결과 미반영', 36, NAVY, lines=1)
+    step = 298 if len(e['korea']) == 2 else 244
     for i, item in enumerate(e['korea']):
-        y = 350 + i*step
-        panel(d, (76, y, 1004, y+step-22))
-        d.rectangle((104, y+26, 111, y+64), fill=BLUE)
-        draw_text(d, (128, y+22, 976, y+83), item['title'], 40, NAVY, True, 1)
-        draw_text(d, (104, y+95, 976, y+step-32), item['body'], 38, NAVY, False, 5 if len(e['korea']) == 2 else 3)
-    draw_text(d, (76, 1154, 1004, 1204), '한국장 영향은 뉴스에 기반한 해석입니다.', 26, GRAY)
-    save(im, count-1)
+        y = 350+i*step
+        panel(d, (54, y, 1026, y+step-20))
+        d.rectangle((84, y+27, 95, y+82), fill=BLUE)
+        tx(d, (120, y+22, 1000, y+90), item['title'], 44, NAVY, True, 1)
+        tx(d, (120, y+101, 1000, y+step-30), item['body'], 40, NAVY, lines=3)
+    panel(d, (54, 1080, 1026, 1170))
+    tx(d, (84, 1104, 1000, 1163), '한국장 영향은 뉴스에 기반한 해석입니다.', 38, NAVY, True, 1)
+    ids = [s['id'] for s in e['sources'] if any(k.startswith('korea.') for k in s['supports'])]
+    finish(im, d, count-1, ids)
+
     im, d = base(count, dark=True)
-    draw_text(d, (76, 200, 1004, 260), '오늘 기억할 한 가지', 32, WHITE)
-    d.line((76, 290, 500, 290), fill='#B4C2D7', width=2)
-    draw_text(d, (76, 350, 1004, 890), e['summary'], 68, WHITE, True, 6)
-    d.line((76, 970, 1004, 970), fill='#B4C2D7', width=2)
-    draw_text(d, (76, 1020, 1004, 1080), '매일 나스닥', 32, WHITE, True)
-    draw_text(d, (76, 1100, 1004, 1190), '익숙한 미국 기업의 소식을 구체적으로.', 30, '#B4C2D7')
-    save(im, count)
+    tx(d, (96, 155, 1000, 223), '오늘 기억할 한 가지', 44, WHITE)
+    d.line((96, 249, 480, 249), fill='#B9C9D9', width=2)
+    tx(d, (96, 300, 1000, 775), e['summary'], 92, WHITE, True, 4)
+    tx(d, (96, 820, 1000, 1006), e.get('closing_note') or e['subheadline'], 46, WHITE, lines=3)
+    rule(d, 1050, True)
+    tx(d, (96, 1100, 1000, 1162), '매일 나스닥', 44, WHITE, True)
+    tx(d, (96, 1182, 1000, 1244), '익숙한 미국 기업의 소식을 구체적으로.', 38, WHITE, lines=1)
+    finish(im, d, count, dark=True)
 
 
 def safe_existing(out):
@@ -329,7 +399,7 @@ def build(m, e, output, movers=None, overwrite=False):
         with zipfile.ZipFile(stage / 'cards.zip', 'w', zipfile.ZIP_DEFLATED) as z:
             for name in edition_zip_files(stage):
                 z.write(stage / name, name)
-        validation = {'status': 'passed', 'trade_date': e['trade_date'], 'kst_briefing_date': e['kst_briefing_date'], 'session': 'regular close', 'dimensions': [1080, 1350], 'date_return_arithmetic': 'passed', 'hashtags': hashtags, 'crosscheck': '; '.join(crosschecks), 'card_count': card_count(e), 'design_version': 'editorial-v2', 'text_bounds': 'passed; fixed role sizes, body >=36px, overflow rejected', 'editorial_mode': 'source checked by agent; not human approval', 'publication_status': 'ready for external publishing checks'}
+        validation = {'status': 'passed', 'trade_date': e['trade_date'], 'kst_briefing_date': e['kst_briefing_date'], 'session': 'regular close', 'dimensions': [1080, 1350], 'date_return_arithmetic': 'passed', 'hashtags': hashtags, 'crosscheck': '; '.join(crosschecks), 'card_count': card_count(e), 'design_version': 'editorial-v3-reference', 'text_bounds': 'passed; fixed role sizes, body >=36px, overflow rejected', 'editorial_mode': 'source checked by agent; not human approval', 'publication_status': 'ready for external publishing checks'}
         (stage / 'validation.json').write_text(json.dumps(validation, ensure_ascii=False, indent=2), encoding='utf-8')
         if out.exists():
             require(overwrite, 'Output appeared during build')

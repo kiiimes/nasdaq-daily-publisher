@@ -39,7 +39,9 @@ Instagram publication requires a durable private preclaim pushed before the firs
 
 Only trusted main-branch manual/scheduled jobs can access Secrets. No pull_request_target triggers. Keep authentication, isolation and integration checks passing before changing the enabled production configuration. The previous local card-generation heartbeat was removed after verified GitHub publication to avoid duplicate generation.
 
-## Editorial design v2
+## Editorial design v3 — approved reference
+
+The renderer follows the approved compact navy/white reference: company and return on one row, reasons below, source-backed metric rows, and a separate closing note. Metrics must cite evidence for the corresponding stock or focus claim. Fixed type sizes reject overflow instead of silently shrinking text.
 
 New daily/generate editions use the approved navy/white editorial design with a fixed type hierarchy, separate company-name and ticker/business lines, full-width concrete reasons and a daily takeaway outro. Body text never shrinks to fit: overflow fails rendering. Korean company names use the same size across cards. Five cards are the baseline; one source-covered focus card may be inserted before Korea impacts (six total). PNG, JPEG, ZIP, preview, checkpoint and publication all use the same ordered card count. Existing `-five-cards` directory names remain stable for receipt compatibility, including six-card editions.
 

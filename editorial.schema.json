@@ -98,6 +98,47 @@
           "business": {
             "type": "string",
             "maxLength": 24
+          },
+          "metrics": {
+            "type": "array",
+            "maxItems": 2,
+            "items": {
+              "type": "object",
+              "properties": {
+                "label": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 22
+                },
+                "value": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 18
+                },
+                "period": {
+                  "type": "string",
+                  "maxLength": 36
+                },
+                "source_ids": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              },
+              "required": [
+                "label",
+                "value",
+                "period",
+                "source_ids"
+              ]
+            }
+          },
+          "takeaway": {
+            "type": "string",
+            "maxLength": 36
           }
         }
       }
@@ -156,6 +197,47 @@
           "business": {
             "type": "string",
             "maxLength": 24
+          },
+          "metrics": {
+            "type": "array",
+            "maxItems": 2,
+            "items": {
+              "type": "object",
+              "properties": {
+                "label": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 22
+                },
+                "value": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 18
+                },
+                "period": {
+                  "type": "string",
+                  "maxLength": 36
+                },
+                "source_ids": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              },
+              "required": [
+                "label",
+                "value",
+                "period",
+                "source_ids"
+              ]
+            }
+          },
+          "takeaway": {
+            "type": "string",
+            "maxLength": 36
           }
         }
       }
@@ -406,9 +488,62 @@
               "type": "string",
               "minLength": 1
             }
+          },
+          "metrics": {
+            "type": "array",
+            "maxItems": 2,
+            "items": {
+              "type": "object",
+              "properties": {
+                "label": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 22
+                },
+                "value": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 18
+                },
+                "period": {
+                  "type": "string",
+                  "maxLength": 36
+                },
+                "source_ids": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              },
+              "required": [
+                "label",
+                "value",
+                "period",
+                "source_ids"
+              ]
+            }
+          },
+          "subtitle": {
+            "type": "string",
+            "maxLength": 45
+          },
+          "subject": {
+            "type": "string",
+            "maxLength": 35
+          },
+          "takeaway": {
+            "type": "string",
+            "maxLength": 38
           }
         }
       }
+    },
+    "closing_note": {
+      "type": "string",
+      "maxLength": 80
     }
   }
 }

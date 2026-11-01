@@ -1,5 +1,5 @@
 name: NASDAQ public runner
-# Renderer: editorial-v2 (five cards, or six with a source-backed focus).
+# Renderer: editorial-v3-reference (five cards, or six with a source-backed focus).
 on:
   schedule:
     - cron: '0 22 * * 1-5'  # Tue-Sat 07:00 Asia/Seoul (UTC+9)

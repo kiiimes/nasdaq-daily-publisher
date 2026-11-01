@@ -36,8 +36,8 @@ def fixtures():
         return q
     m={'trade_date':td,'indices':[quote(s,'TEST index','110','10.00') for s in cross]}
     movers={'trade_date':td,'stocks':[quote(p['symbol'],p['name'],p['close'],p['change_pct'],p['exchange']) for p in picks]}
-    e={'trade_date':td,'kst_briefing_date':'2020-01-03','reviewed':True,'headline':'TEST fixture\n합성 테스트','subheadline':'TEST','summary':'TEST','up':[],'down':[],'korea':[{'title':'TEST','body':'TEST 조건일 경우 가능'} for _ in range(3)],'sources':[source],'crosscheck':cross,'research_facts':facts,'hashtags':['#TEST'],'focus':[]}
-    for p in picks:e[p['direction']].append({'symbol':p['symbol'],'name':p['name'],'change_pct':p['change_pct'],'business':'TEST business','tag':'TEST','why':'TEST synthetic cause only','source_ids':['TEST']})
+    e={'trade_date':td,'kst_briefing_date':'2020-01-03','reviewed':True,'headline':'TEST fixture\n합성 테스트','subheadline':'TEST','summary':'TEST','up':[],'down':[],'korea':[{'title':'TEST','body':'TEST 조건일 경우 가능'} for _ in range(3)],'sources':[source],'crosscheck':cross,'research_facts':facts,'hashtags':['#TEST'],'focus':[],'closing_note':'TEST'}
+    for p in picks:e[p['direction']].append({'symbol':p['symbol'],'name':p['name'],'change_pct':p['change_pct'],'business':'TEST business','metrics':[],'takeaway':'','tag':'TEST','why':'TEST synthetic cause only','source_ids':['TEST']})
     return r,m,movers,e
 
 class EditorialTests(unittest.TestCase):
