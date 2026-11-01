@@ -71,7 +71,7 @@ export function requirePrivateOrigin(root,run=git) {
 }
 export async function checkpoint(root,extra=[],run=git) {
   const files=['cloud_state.json','codex_session.enc',...extra];
-  const allowed=/^editions\/\d{4}-\d{2}-\d{2}(?:-korea|-[a-z0-9-]+cards)?\/(?:market\.json|movers\.json|research\.json|editorial\.json|0[1-5]\.png|caption\.txt|sources\.txt|preview\.jpg|validation\.json|index\.html|cards\.zip|api-images\/0[1-5]\.jpg)$/;
+  const allowed=/^editions\/\d{4}-\d{2}-\d{2}(?:-korea|-[a-z0-9-]+cards)?\/(?:market\.json|movers\.json|research\.json|editorial\.json|0[1-6]\.png|caption\.txt|sources\.txt|preview\.jpg|validation\.json|index\.html|cards\.zip|api-images\/0[1-6]\.jpg)$/;
   const existing=[];
   for(const f of files) {
     if(!relative(f)||(!['cloud_state.json','codex_session.enc'].includes(f)&&!allowed.test(f)))throw Error('checkpoint_path_rejected');

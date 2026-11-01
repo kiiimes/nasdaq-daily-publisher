@@ -38,3 +38,11 @@ Runtime source is copied using an explicit allowlist into a separate PRIVATE SSH
 Instagram publication requires a durable private preclaim pushed before the first media POST. Ambiguous/cancelled jobs require manual inspection, never an automatic retry. Hard runner termination can interrupt encrypted session refresh persistence.
 
 Only trusted main-branch manual/scheduled jobs can access Secrets. No pull_request_target triggers. Keep authentication, isolation and integration checks passing before changing the enabled production configuration. The previous local card-generation heartbeat was removed after verified GitHub publication to avoid duplicate generation.
+
+## Editorial design v2
+
+New daily/generate editions use the approved navy/white editorial design with a fixed type hierarchy, separate company-name and ticker/business lines, full-width concrete reasons and a daily takeaway outro. Body text never shrinks to fit: overflow fails rendering. Korean company names use the same size across cards. Five cards are the baseline; one source-covered focus card may be inserted before Korea impacts (six total). PNG, JPEG, ZIP, preview, checkpoint and publication all use the same ordered card count. Existing `-five-cards` directory names remain stable for receipt compatibility, including six-card editions.
+
+Research prioritizes familiar US large-cap companies; at most one less familiar exception needs a material market/Korea link. Reasons identify the announcement, period and supported actual/guidance/consensus figures instead of vague sentiment. Named Korean supply links need evidence. Korea impacts distinguish verified business mechanisms from future interpretation without requiring repetitive uncertainty keywords. Focus content requires explicit `focus.0` source coverage. These are editorial instructions and evidence checks, not an automatic guarantee of causal truth.
+
+The Tue–Sat 07:00 KST schedule and manual daily trigger are unchanged. Already-posted editions are not regenerated or reposted by this design update. `repost` continues reusing saved images.

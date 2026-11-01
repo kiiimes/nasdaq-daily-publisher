@@ -11,14 +11,16 @@ export function immutable(existing,files) {
   if(existing && (Object.keys(existing).sort().join()!==files.map(f=>f.name).sort().join() || files.some(f=>existing[f.name]!==f.sha256)))throw Error('immutable_asset_conflict');
 }
 export async function validateJpegs(job,run=execFileSync) {
-  if(job.status!=='ready'||job.images.length!==5)throw Error('stable_five_card_job_required');
+  if(job.status!=='ready'||![5,6].includes(job.images.length))throw Error('stable_editorial_card_job_required');
   const dir=path.join(job.edition,'api-images');
   if((await fs.lstat(dir)).isSymbolicLink())throw Error('jpeg_symlink');
   const names=(await fs.readdir(dir)).sort();
-  if(names.join()!=='01.jpg,02.jpg,03.jpg,04.jpg,05.jpg')throw Error('jpeg_allowlist_failed');
+  const expected=Array.from({length:job.images.length},(_,i)=>String(i+1).padStart(2,'0'));
+  if(job.images.map(p=>path.basename(p)).join()!==expected.map(n=>n+'.png').join())throw Error('png_sequence_failed');
+  if(names.join()!==expected.map(n=>n+'.jpg').join())throw Error('jpeg_allowlist_failed');
   // Re-encode source PNG using the exact builder settings and compare bytes.
-  const script=`import sys,io,json,hashlib\nfrom PIL import Image\nr=[]\nfor i in range(1,6):\n p=sys.argv[1]+'/'+str(i).zfill(2)\n im=Image.open(p+'.png'); j=Image.open(sys.argv[1]+'/api-images/'+str(i).zfill(2)+'.jpg')\n assert im.size==j.size==(1080,1350) and j.format=='JPEG'\n b=io.BytesIO();im.save(b,format='JPEG',quality=95,subsampling=0)\n raw=open(sys.argv[1]+'/api-images/'+str(i).zfill(2)+'.jpg','rb').read()\n assert raw==b.getvalue() and len(raw)<8*1024*1024\n r.append(hashlib.sha256(raw).hexdigest())\nprint(json.dumps(r))`;
-  let hashes;try{hashes=JSON.parse(run('python3',['-c',script,job.edition],{stdio:['ignore','pipe','pipe'],encoding:'utf8',timeout:30000}));}catch{throw Error('jpeg_derivation_or_dimensions_failed');}
+  const script=`import sys,io,json,hashlib\nfrom PIL import Image\nr=[]\nfor i in range(1,int(sys.argv[2])+1):\n p=sys.argv[1]+'/'+str(i).zfill(2)\n im=Image.open(p+'.png'); j=Image.open(sys.argv[1]+'/api-images/'+str(i).zfill(2)+'.jpg')\n assert im.size==j.size==(1080,1350) and j.format=='JPEG'\n b=io.BytesIO();im.save(b,format='JPEG',quality=95,subsampling=0)\n raw=open(sys.argv[1]+'/api-images/'+str(i).zfill(2)+'.jpg','rb').read()\n assert raw==b.getvalue() and len(raw)<8*1024*1024\n r.append(hashlib.sha256(raw).hexdigest())\nprint(json.dumps(r))`;
+  let hashes;try{hashes=JSON.parse(run('python3',['-c',script,job.edition,String(job.images.length)],{stdio:['ignore','pipe','pipe'],encoding:'utf8',timeout:30000}));}catch{throw Error('jpeg_derivation_or_dimensions_failed');}
   const files=[];
   for(let i=0;i<names.length;i++){const source=path.join(dir,names[i]);const st=await fs.lstat(source);if(!st.isFile()||st.isSymbolicLink())throw Error('jpeg_not_regular');const bytes=await fs.readFile(source);if(digest(bytes)!==hashes[i])throw Error('jpeg_changed');files.push({name:names[i],pngname:path.basename(job.images[i]),sha256:hashes[i],bytes});}
   return files;
