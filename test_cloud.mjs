@@ -1,6 +1,6 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs/promises';import os from 'node:os';import path from 'node:path';
 import {rebase,materialize,portable,durableWatcher,checkpoint} from './cloud_publish.mjs';
-import {immutable,validateJpegs,digest} from './upload-media.mjs';
+import {immutable,validateJpegs,digest,assetDirectory} from './upload-media.mjs';
 const job={id:'x',account:'daily.nasdaq.kr',edition:'/old/editions/2026-10-30-five-cards',images:['/old/editions/2026-10-30-five-cards/01.png'],caption:'/old/editions/2026-10-30-five-cards/caption.txt',status:'in_progress'};
 test('portable root rebasing preserves terminal claim',()=>{const p=rebase(job,'/old',true);assert.equal(p.edition,'editions/2026-10-30-five-cards');const n=rebase(p,'/new');assert.equal(n.caption,'/new/editions/2026-10-30-five-cards/caption.txt');assert.equal(n.status,'in_progress');assert.throws(()=>rebase({...p,caption:'../secret'},'/new'));});
 test('preclaim checkpoint precedes irreversible caller',async()=>{const order=[];const w=durableWatcher({claim:async()=>{order.push('claim');return {status:'claimed'};}},async()=>order.push('push'));await w.claim('x');order.push('POST');assert.deepEqual(order,['claim','push','POST']);});
@@ -90,3 +90,12 @@ test('a public-origin checkpoint failure blocks irreversible publish after local
 });
 
 test('five and six JPEG packages preserve ordered PNG mapping; extras rejected',async t=>{for(const count of [5,6]){const root=await fs.mkdtemp(path.join(os.tmpdir(),'TEST-images-'));t.after(()=>fs.rm(root,{recursive:true,force:true}));await fs.mkdir(path.join(root,'api-images'));const images=[];for(let i=1;i<=count;i++){const n=String(i).padStart(2,'0');images.push(path.join(root,n+'.png'));await fs.writeFile(path.join(root,'api-images',n+'.jpg'),'TEST');}const job={status:'ready',edition:root,images};const run=()=>JSON.stringify(Array(count).fill(digest(Buffer.from('TEST'))));assert.equal((await validateJpegs(job,run)).length,count);await assert.rejects(()=>validateJpegs({...job,images:[...images].reverse()},run));await fs.writeFile(path.join(root,'api-images','07.jpg'),'TEST');await assert.rejects(()=>validateJpegs(job,run));}});
+
+test('revised images get distinct immutable directories for the same edition',()=>{
+ const edition='2026-10-30-five-cards';
+ const a=[{name:'01.jpg',sha256:'a'.repeat(64)}], b=[{name:'01.jpg',sha256:'b'.repeat(64)}];
+ assert.equal(assetDirectory(edition,a),assetDirectory(edition,structuredClone(a)));
+ assert.notEqual(assetDirectory(edition,a),assetDirectory(edition,b));
+ assert.equal(path.posix.basename(assetDirectory(edition,a)),edition);
+ assert.throws(()=>assetDirectory('../escape',a));
+});

@@ -25,6 +25,11 @@ export async function validateJpegs(job,run=execFileSync) {
   for(let i=0;i<names.length;i++){const source=path.join(dir,names[i]);const st=await fs.lstat(source);if(!st.isFile()||st.isSymbolicLink())throw Error('jpeg_not_regular');const bytes=await fs.readFile(source);if(digest(bytes)!==hashes[i])throw Error('jpeg_changed');files.push({name:names[i],pngname:path.basename(job.images[i]),sha256:hashes[i],bytes});}
   return files;
 }
+export function assetDirectory(edition,files) {
+  if(!/^\d{4}-\d{2}-\d{2}-five-cards$/.test(edition))throw Error('invalid_edition');
+  const revision=digest(JSON.stringify(files.map(f=>[f.name,f.sha256])));
+  return 'revisions/'+revision+'/'+edition;
+}
 export async function prepare(root,id) {
   if(process.env.PUBLISH_ENABLED!=='true'||process.env.AUTOMATION_ENABLED!=='true')throw Error('publish_disabled');
   if(!process.env.ASSETS_DEPLOY_KEY)throw Error('missing_secret:ASSETS_DEPLOY_KEY');
@@ -44,13 +49,14 @@ export async function prepare(root,id) {
     const env={PATH:process.env.PATH,HOME:temp,GIT_CONFIG_NOSYSTEM:'1',GIT_TERMINAL_PROMPT:'0',GIT_SSH_COMMAND:`ssh -i '${key.replaceAll("'","'\\''")}' -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile='${hosts.replaceAll("'","'\\''")}'`};
     const git=(args,cwd=repo)=>{try{return execFileSync('git',args,{cwd,env,stdio:['ignore','pipe','pipe'],encoding:'utf8',timeout:60000}).trim();}catch{throw Error('assets_git_failed');}};
     git(['clone','--depth','1','--branch','main','git@github.com:kiiimes/nasdaq-card-assets.git',repo],temp);
-    const target=path.join(repo,edition);let existing=null;
+    const assetPath=assetDirectory(edition,files);
+    const target=path.join(repo,assetPath);let existing=null;
     try{if((await fs.lstat(target)).isSymbolicLink())throw Error('asset_symlink');existing={};for(const n of await fs.readdir(target)){const p=path.join(target,n);if(!(await fs.lstat(p)).isFile()||(await fs.lstat(p)).isSymbolicLink())throw Error('asset_invalid');existing[n]=digest(await fs.readFile(p));}}catch(e){if(e.code!=='ENOENT')throw e;}
     immutable(existing,files);
-    if(!existing){await fs.mkdir(target);for(const f of files)await fs.writeFile(path.join(target,f.name),f.bytes,{flag:'wx'});
-      git(['add','--',...files.map(f=>edition+'/'+f.name)]);git(['-c','user.name=nasdaq assets','-c','user.email=automation@users.noreply.github.com','commit','-m','Add immutable JPEG edition '+edition]);git(['push','origin','HEAD:main']);}
+    if(!existing){await fs.mkdir(target,{recursive:true});for(const f of files)await fs.writeFile(path.join(target,f.name),f.bytes,{flag:'wx'});
+      git(['add','--',...files.map(f=>assetPath+'/'+f.name)]);git(['-c','user.name=nasdaq assets','-c','user.email=automation@users.noreply.github.com','commit','-m','Add immutable JPEG edition '+edition]);git(['push','origin','HEAD:main']);}
     const sha=git(['rev-parse','HEAD']);if(!/^[a-f0-9]{40}$/.test(sha))throw Error('invalid_commit');
-    const manifest={job_id:id,edition,files:files.map(({bytes,...f})=>({...f,url:`https://raw.githubusercontent.com/kiiimes/nasdaq-card-assets/${sha}/${edition}/${f.name}`}))};
+    const manifest={job_id:id,edition,files:files.map(({bytes,...f})=>({...f,url:`https://raw.githubusercontent.com/kiiimes/nasdaq-card-assets/${sha}/${assetPath}/${f.name}`}))};
     await atomic(path.join(root,'.instagram-auto',id+'.manifest.json'),manifest);return manifest;
   }finally{await fs.rm(temp,{recursive:true,force:true});}
 }
