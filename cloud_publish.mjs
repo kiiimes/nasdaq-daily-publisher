@@ -129,6 +129,17 @@ export async function scanStable(root,wait=ms=>new Promise(r=>setTimeout(r,ms)))
   }
   await portable(root);await checkpoint(root);return result;
 }
+export function selectPublication(result,state,date) {
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||new Date(date).toISOString().slice(0,10)!==date)throw Error('invalid_publish_date');
+  const td=date.replaceAll('-','');
+  if(result.attention.length)throw Error('publication_requires_review');
+  const ready=result.ready.filter(j=>j.trade_date===td);
+  if(ready.length>1)throw Error('multiple_current_editions');
+  const posted=Object.values(state.jobs??{}).some(j=>j.trade_date===td&&j.status==='posted') || (state.baseline??[]).includes(date+'-five-cards');
+  if(!ready.length&&!posted)throw Error('current_edition_not_ready');
+  if(ready.length&&posted)throw Error('current_edition_already_reserved');
+  return {...result,ready};
+}
 export async function publish(root,id,manifest) {
   if(process.env.PUBLISH_ENABLED!=='true'||process.env.AUTOMATION_ENABLED!=='true')throw Error('publish_disabled');
   if(!process.env.IG_ACCESS_TOKEN)throw Error('missing_secret:IG_ACCESS_TOKEN');
@@ -144,7 +155,14 @@ export async function publish(root,id,manifest) {
 async function main() {
   const root=path.dirname(fileURLToPath(import.meta.url)),[command,id]=process.argv.slice(2);
   if(command==='authorize-repost'){await authorizeRepost(root,id,process.env.GITHUB_RUN_ID);console.log('Explicit dated repost authorized; original receipts retained');}
-  else if(command==='scan'){const r=await scanStable(root);if(process.env.REPOST_MODE==='repost')r.ready=r.ready.filter(j=>j.trade_date===process.env.REPOST_DATE?.replaceAll('-',''));await atomic(path.join(root,'.cloud-ready.json'),r);console.log(JSON.stringify({ready:r.ready.map(j=>j.id),attention:r.attention.length}));}
+  else if(command==='scan'){
+    let r=await scanStable(root);
+    const date=process.env.REPOST_MODE==='repost'?process.env.REPOST_DATE:process.env.PUBLISH_TRADE_DATE;
+    if(date)r=selectPublication(r,await json(path.join(root,'.instagram-auto/state.json')),date);
+    await atomic(path.join(root,'.cloud-ready.json'),r);
+    if(process.env.GITHUB_OUTPUT)await fs.appendFile(process.env.GITHUB_OUTPUT,'publish_ready='+String(r.ready.length===1&&!r.attention.length)+'\n');
+    console.log(JSON.stringify({ready:r.ready.map(j=>j.id),attention:r.attention.length,status:r.ready.length?'ready':'already_posted'}));
+  }
   else if(command==='checkpoint'){await portable(root);const extra=[];for(const d of await fs.readdir(path.join(root,'editions')).catch(()=>[])){
     if(!/^\d{4}-\d{2}-\d{2}(?:-korea|-[a-z0-9-]+cards)?$/.test(d))continue;
     for(const f of await fs.readdir(path.join(root,'editions',d),{recursive:true}))extra.push('editions/'+d+'/'+f);

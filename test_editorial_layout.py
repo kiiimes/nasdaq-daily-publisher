@@ -16,11 +16,12 @@ class LayoutTests(unittest.TestCase):
                 _, m, movers, e = fixtures()
                 e['up'][0]['name'] = movers['stocks'][0]['name'] = '마이크로소프트'
                 e['up'][0]['business'] = '합성 테스트'
+                for item in e['korea']:item['body']='가나다라마바사 아자차카타파하 가나다라마 바사아자차 카타파하 가나다라마 바사아자차 카타파하 가나다라마 바사아자차'
                 e['up'][0]['metrics'] = [{'label':'합성 수치','value':'12%','period':'TEST','source_ids':['TEST']}]
                 e['up'][0]['takeaway'] = '합성 테스트 요약'
                 if focus:
                     e['sources'][0]['supports'].append('focus.0')
-                    e['focus'] = [{'title':'핵심 수치 비교', 'body':'합성 데이터 설명입니다.\n실제 투자정보가 아닙니다.', 'source_ids':['TEST'], 'metrics':[{'label':'합성 비교','value':'24%','period':'TEST','source_ids':['TEST']}], 'subject':'합성 기업', 'subtitle':'합성 수치 비교', 'takeaway':'합성 요약'}]
+                    e['focus'] = [{'title':'핵심 수치 비교', 'body':'합성 데이터 설명입니다.\n실제 투자정보가 아닙니다.', 'source_ids':['TEST'], 'metrics':[{'label':'합성 비교','value':'최소 10%대 중반','period':'TEST','source_ids':['TEST']}], 'subject':'합성 기업', 'subtitle':'합성 수치 비교', 'takeaway':'합성 요약'}]
                 out = b.build(m, e, Path(tmp)/'cards', movers)
                 n = 6 if focus else 5
                 self.assertEqual(len(list(out.glob('*.png'))), n)

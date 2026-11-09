@@ -95,6 +95,12 @@ def generate(day):
     work = ROOT/'editions'/(day+'-korea'); work.mkdir(parents=True, exist_ok=True)
     research, editorial = work/'research.json', work/'editorial.json'
     movers = work/'movers.json'
+    if editorial.exists() and movers.exists():
+        # Resume an interrupted render for this exact date; retain all builder checks.
+        market = ROOT/'editions'/day/'market.json'
+        child([sys.executable,'build_edition.py','--market',str(market),'--editorial',str(editorial),'--movers',str(movers),'--output',str(final)],timeout=80)
+        print(json.dumps({'status':'rendered_saved_inputs','edition':final.name}))
+        return True
     if movers.exists(): raise ValueError('Movers cache exists; manual review rather than silently reuse other selections')
     for attempt in range(2):
         try:

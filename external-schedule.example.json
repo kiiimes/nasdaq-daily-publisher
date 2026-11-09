@@ -1,0 +1,146 @@
+{
+  "note": "Disabled templates only. Not registered with any service. Never commit real tokens. Dispatch success is not publication success.",
+  "jobs": [
+    {
+      "job": {
+        "title": "Daily Nasdaq Generate",
+        "url": "https://api.github.com/repos/kiiimes/nasdaq-daily-publisher/actions/workflows/daily.yml/dispatches",
+        "enabled": false,
+        "saveResponses": false,
+        "schedule": {
+          "timezone": "Asia/Seoul",
+          "hours": [
+            6
+          ],
+          "minutes": [
+            10
+          ],
+          "wdays": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "mdays": [
+            -1
+          ],
+          "months": [
+            -1
+          ],
+          "expiresAt": 0
+        },
+        "requestMethod": 1,
+        "extendedData": {
+          "headers": {
+            "Accept": "application/vnd.github+json",
+            "Content-Type": "application/json",
+            "Authorization": "Bearer REPLACE_WITH_REPO_SCOPED_ACTIONS_WRITE_TOKEN",
+            "X-GitHub-Api-Version": "2022-11-28"
+          },
+          "body": "{\"ref\": \"main\", \"inputs\": {\"mode\": \"generate\"}}"
+        },
+        "notification": {
+          "onFailure": true,
+          "onFailureCount": 1,
+          "onSuccess": true,
+          "onDisable": true
+        }
+      }
+    },
+    {
+      "job": {
+        "title": "Daily Nasdaq Publish",
+        "url": "https://api.github.com/repos/kiiimes/nasdaq-daily-publisher/actions/workflows/daily.yml/dispatches",
+        "enabled": false,
+        "saveResponses": false,
+        "schedule": {
+          "timezone": "Asia/Seoul",
+          "hours": [
+            7
+          ],
+          "minutes": [
+            0
+          ],
+          "wdays": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "mdays": [
+            -1
+          ],
+          "months": [
+            -1
+          ],
+          "expiresAt": 0
+        },
+        "requestMethod": 1,
+        "extendedData": {
+          "headers": {
+            "Accept": "application/vnd.github+json",
+            "Content-Type": "application/json",
+            "Authorization": "Bearer REPLACE_WITH_REPO_SCOPED_ACTIONS_WRITE_TOKEN",
+            "X-GitHub-Api-Version": "2022-11-28"
+          },
+          "body": "{\"ref\": \"main\", \"inputs\": {\"mode\": \"publish\"}}"
+        },
+        "notification": {
+          "onFailure": true,
+          "onFailureCount": 1,
+          "onSuccess": true,
+          "onDisable": true
+        }
+      }
+    },
+    {
+      "job": {
+        "title": "Daily Nasdaq Recover",
+        "url": "https://api.github.com/repos/kiiimes/nasdaq-daily-publisher/actions/workflows/daily.yml/dispatches",
+        "enabled": false,
+        "saveResponses": false,
+        "schedule": {
+          "timezone": "Asia/Seoul",
+          "hours": [
+            7
+          ],
+          "minutes": [
+            15
+          ],
+          "wdays": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "mdays": [
+            -1
+          ],
+          "months": [
+            -1
+          ],
+          "expiresAt": 0
+        },
+        "requestMethod": 1,
+        "extendedData": {
+          "headers": {
+            "Accept": "application/vnd.github+json",
+            "Content-Type": "application/json",
+            "Authorization": "Bearer REPLACE_WITH_REPO_SCOPED_ACTIONS_WRITE_TOKEN",
+            "X-GitHub-Api-Version": "2022-11-28"
+          },
+          "body": "{\"ref\": \"main\", \"inputs\": {\"mode\": \"daily\"}}"
+        },
+        "notification": {
+          "onFailure": true,
+          "onFailureCount": 1,
+          "onSuccess": true,
+          "onDisable": true
+        }
+      }
+    }
+  ]
+}

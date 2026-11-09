@@ -325,9 +325,9 @@ def render_cards(out, m, e):
             for i, metric in enumerate(metrics):
                 y = 474+i*157
                 d.rounded_rectangle((77, y, 1003, y+145), radius=16, fill=WHITE)
-                tx(d, (112, y+38, 532, y+105), metric['label'], 42, NAVY, True, 1)
-                tx(d, (567, y+14, 980, y+95), metric['value'], 68, metric_color(metric['value']), True, 1)
-                tx(d, (567, y+102, 980, y+139), metric.get('period', ''), 25, NAVY, lines=1)
+                tx(d, (112, y+38, 485, y+105), metric['label'], 42, NAVY, True, 1)
+                tx(d, (505, y+14, 980, y+95), metric['value'], 68, metric_color(metric['value']), True, 1)
+                tx(d, (505, y+102, 980, y+139), metric.get('period', ''), 25, NAVY, lines=1)
             tx(d, (54, 837, 1026, 1030), item['body'], 42, NAVY, lines=3)
         else:
             rule(d, 350)
@@ -339,13 +339,14 @@ def render_cards(out, m, e):
 
     im, d = base(count-1, '한국장과 연결하면')
     tx(d, (54, 260, 1026, 322), '미국 마감 당시 해석 · 이후 한국장 결과 미반영', 36, NAVY, lines=1)
-    step = 298 if len(e['korea']) == 2 else 244
+    three = len(e['korea']) == 3
+    step = 253 if three else 298
     for i, item in enumerate(e['korea']):
-        y = 350+i*step
-        panel(d, (54, y, 1026, y+step-20))
+        y = (310 if three else 350)+i*step
+        panel(d, (54, y, 1026, y+step-(10 if three else 20)))
         d.rectangle((84, y+27, 95, y+82), fill=BLUE)
         tx(d, (120, y+22, 1000, y+90), item['title'], 44, NAVY, True, 1)
-        tx(d, (120, y+101, 1000, y+step-30), item['body'], 40, NAVY, lines=3)
+        tx(d, (120, y+(85 if three else 101), 1000, y+step-(10 if three else 30)), item['body'], 40, NAVY, lines=3)
     panel(d, (54, 1080, 1026, 1170))
     tx(d, (84, 1104, 1000, 1163), '한국장 영향은 뉴스에 기반한 해석입니다.', 38, NAVY, True, 1)
     ids = [s['id'] for s in e['sources'] if any(k.startswith('korea.') for k in s['supports'])]

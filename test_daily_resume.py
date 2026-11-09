@@ -50,3 +50,16 @@ class ResumeTests(unittest.TestCase):
                             if args[1]!='build_edition.py':return original(args,**kwargs)
                         with patch.object(daily,'child',side_effect=dispatch):self.assertTrue(daily.generate('2020-01-02'))
                 self.assertEqual(len(attempts),2)
+
+    def test_saved_inputs_resume_only_renderer_and_keep_failure_closed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)
+            (root/'cloud_state.seed.json').write_text('{"baseline":[],"jobs":{}}')
+            work=root/'editions/2026-11-06-korea';work.mkdir(parents=True)
+            for name in ('editorial.json','movers.json'):(work/name).write_text('{}')
+            with patch.object(daily,'ROOT',root),patch.object(daily,'child') as child:
+                self.assertTrue(daily.generate('2026-11-06'))
+                self.assertEqual(child.call_args.args[0][1],'build_edition.py')
+                self.assertEqual(child.call_count,1)
+                child.side_effect=ValueError('invalid saved input')
+                with self.assertRaises(ValueError):daily.generate('2026-11-06')

@@ -1,5 +1,5 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs/promises';import os from 'node:os';import path from 'node:path';
-import {rebase,materialize,portable,durableWatcher,checkpoint} from './cloud_publish.mjs';
+import {rebase,materialize,portable,durableWatcher,checkpoint,selectPublication} from './cloud_publish.mjs';
 import {immutable,validateJpegs,digest,assetDirectory} from './upload-media.mjs';
 const job={id:'x',account:'daily.nasdaq.kr',edition:'/old/editions/2026-10-30-five-cards',images:['/old/editions/2026-10-30-five-cards/01.png'],caption:'/old/editions/2026-10-30-five-cards/caption.txt',status:'in_progress'};
 test('portable root rebasing preserves terminal claim',()=>{const p=rebase(job,'/old',true);assert.equal(p.edition,'editions/2026-10-30-five-cards');const n=rebase(p,'/new');assert.equal(n.caption,'/new/editions/2026-10-30-five-cards/caption.txt');assert.equal(n.status,'in_progress');assert.throws(()=>rebase({...p,caption:'../secret'},'/new'));});
@@ -98,4 +98,12 @@ test('revised images get distinct immutable directories for the same edition',()
  assert.notEqual(assetDirectory(edition,a),assetDirectory(edition,b));
  assert.equal(path.posix.basename(assetDirectory(edition,a)),edition);
  assert.throws(()=>assetDirectory('../escape',a));
+});
+
+test('scheduled publish selects only current date and repeated publication is a no-op',()=>{
+ const current={trade_date:'20261106',id:'current'},old={trade_date:'20261105',id:'old'};
+ assert.deepEqual(selectPublication({ready:[old,current],attention:[]},{},'2026-11-06').ready,[current]);
+ assert.deepEqual(selectPublication({ready:[],attention:[]},{jobs:{a:{...current,status:'posted'}}},'2026-11-06').ready,[]);
+ assert.throws(()=>selectPublication({ready:[old],attention:[]},{},'2026-11-06'),/current_edition_not_ready/);
+ assert.throws(()=>selectPublication({ready:[current],attention:['uncertain']},{},'2026-11-06'),/requires_review/);
 });
